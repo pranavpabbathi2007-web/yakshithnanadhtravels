@@ -1,3 +1,117 @@
+
+// ==========================================================================
+// RESILIENT DATA LAYER (Auto-detects Node.js API vs Local Storage Fallback)
+// Ensures Admin Console works on Node Server, GitHub Pages, or any device!
+// ==========================================================================
+
+const SEED_DATA = {
+  stats: { total: 4, pending: 1, confirmed: 2, today_scheduled: 2 },
+  bookings: [
+    {
+      id: 1,
+      booking_ref: 'YNT-2026-1001',
+      customer_name: 'Rajesh Sharma',
+      customer_phone: '+91 98480 22334',
+      service_type: 'Tirumala Special Darshan Package',
+      preferred_vehicle: 'Innova Crysta',
+      pickup_location: 'Tirupati Central Station',
+      destination: 'Tirumala Temple Hills',
+      travel_date: new Date().toISOString().split('T')[0],
+      passenger_count: 5,
+      status: 'Confirmed',
+      driver_name: 'Govinda Raju',
+      driver_phone: '+91 88868 30755',
+      vehicle_number: 'AP 03 TX 1122',
+      fare_estimate: '₹2,800',
+      created_at: '2026-11-04 09:30 AM'
+    },
+    {
+      id: 2,
+      booking_ref: 'YNT-2026-1002',
+      customer_name: 'Ananya Deshmukh',
+      customer_phone: '+91 97009 35888',
+      service_type: 'Airport Transfer',
+      preferred_vehicle: 'Swift Dzire',
+      pickup_location: 'Renigunta Airport (TIR)',
+      destination: 'Hotel Fortune Grand, Tirupati',
+      travel_date: new Date().toISOString().split('T')[0],
+      passenger_count: 2,
+      status: 'Pending',
+      driver_name: '',
+      driver_phone: '',
+      vehicle_number: '',
+      fare_estimate: '',
+      created_at: '2026-11-04 10:15 AM'
+    },
+    {
+      id: 3,
+      booking_ref: 'YNT-2026-1003',
+      customer_name: 'K. S. Murthy',
+      customer_phone: '+91 94401 55667',
+      service_type: 'Outstation Pilgrimage',
+      preferred_vehicle: 'Toyota Innova',
+      pickup_location: 'Alipiri Footpath Entry',
+      destination: 'Sri Kalahasti Temple & Kanipakam',
+      travel_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+      passenger_count: 6,
+      status: 'Driver Assigned',
+      driver_name: 'Srinivasulu M.',
+      driver_phone: '+91 99887 66554',
+      vehicle_number: 'AP 03 AB 4545',
+      fare_estimate: '₹3,500',
+      created_at: '2026-11-03 04:00 PM'
+    }
+  ],
+  services: [
+    { id: 1, name: 'Local Trips & Sightseeing', category: 'City Tour', starting_price: '₹1,499', description: 'Explore the timeless heritage of Tirupati at your own comfortable pace with our flexible full-day and half-day packages.', features: 'Kapila Theertham, Padmavathi Temple, Govindaraja Temple' },
+    { id: 2, name: 'Outstation Trips', category: 'Intercity', starting_price: '₹13/km', description: 'Comfortable, long-distance intercity travel from Tirupati to major metropolitan and pilgrimage destinations across South India.', features: 'Chennai, Bangalore, Hyderabad, Vellore Golden Temple' },
+    { id: 3, name: 'Airport & Railway Transfers', category: 'Transfers', starting_price: '₹799', description: 'Punctual, guaranteed pickups from Tirupati Airport (Renigunta) and Tirupati Central / West Railway stations.', features: 'Flight tracking, luggage assistance, zero waiting surcharge' },
+    { id: 4, name: 'Tirumala Special Darshan Packages', category: 'Pilgrimage', starting_price: '₹2,499', description: 'Hassle-free Tirumala hilltop transportation with seasoned mountain drivers certified for both ghat roads.', features: 'Doorstep pickup, customized itinerary, guidance on reporting hall' }
+  ],
+  fleet: [
+    { id: 1, model_name: 'Swift Dzire', category: 'Sedan', capacity: 4, luggage_bags: 2, rate_per_km: '₹12/km', description: 'Clean, fuel-efficient sedan ideal for small families and airport transfers.' },
+    { id: 2, model_name: 'Toyota Innova', category: 'Premium SUV', capacity: 7, luggage_bags: 4, rate_per_km: '₹18/km', description: 'Spacious family MPV with captain seats and ample luggage capacity.' },
+    { id: 3, model_name: 'Innova Crysta', category: 'Luxury MPV', capacity: 7, luggage_bags: 5, rate_per_km: '₹22/km', description: 'Top-tier pilgrimage comfort with plush interiors and superior ride quality.' }
+  ],
+  destinations: [
+    { id: 1, name: 'Tirumala Sri Venkateswara Temple', subtitle: 'Sacred Hill Shrine', distance: '22 km', duration: '45 mins', description: 'The revered abode of Lord Balaji atop the sacred Seven Hills of Seshachalam.' },
+    { id: 2, name: 'Sri Kalahasteeswara Temple', subtitle: 'Rahu-Ketu Kshetra & Vayu Lingam', distance: '38 km', duration: '50 mins', description: 'Ancient Shiva temple renowned worldwide for Rahu-Ketu Sarpa Dosha Nivarana pujas.' },
+    { id: 3, name: 'Kanipakam Varasiddhi Vinayaka', subtitle: 'Self-Manifested Swayambhu Ganesha', distance: '72 km', duration: '1.5 hrs', description: 'A sacred water shrine where the historic Ganesha idol is known to grow continuously in size.' },
+    { id: 4, name: 'Sri Padmavathi Ammavari Temple', subtitle: 'Tiruchanoor Divine Mother', distance: '5 km', duration: '15 mins', description: 'The essential consort shrine where pilgrims seek blessings before or after Tirumala darshan.' },
+    { id: 5, name: 'Sripuram Golden Temple (Vellore)', subtitle: 'Gilded Mahalakshmi Shrine', distance: '105 km', duration: '2.5 hrs', description: 'Magnificent temple layered with over 1,500 kilograms of pure gold leaf.' }
+  ],
+  contacts: [
+    { id: 1, name: 'Padmavathi Devi', phone: '+91 98480 33445', email: 'padma@example.com', message: 'Looking for 3-day round trip cab package for 6 elders visiting Tirumala and Kanipakam in December.', status: 'New', created_at: '2026-11-04 08:20 AM' }
+  ],
+  settings: {
+    company_name: 'Yakshith Nandh Travels',
+    slogan: 'Your Safety, Our Priority.',
+    primary_phone: '+91 88868 30755',
+    secondary_phone: '+91 97009 35888',
+    email: 'yakshithnandhtravels.demo@gmail.com',
+    location: 'Tirupati, Andhra Pradesh, India',
+    announcement: '24/7 Available • Pilgrimage & Cab Service in Tirupati'
+  }
+};
+
+function getStorage(key, defaultVal) {
+  try {
+    const raw = localStorage.getItem('ynt_' + key);
+    if (!raw) {
+      localStorage.setItem('ynt_' + key, JSON.stringify(defaultVal));
+      return JSON.parse(JSON.stringify(defaultVal));
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    return defaultVal;
+  }
+}
+
+function setStorage(key, val) {
+  try {
+    localStorage.setItem('ynt_' + key, JSON.stringify(val));
+  } catch (e) {}
+}
 /**
  * YAKSHITH NANDH TRAVELS - Admin Master Console Logic
  * Complete control over every section of the website
