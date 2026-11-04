@@ -998,3 +998,16 @@ function escapeQuote(str) {
   if (!str) return '';
   return str.replace(/'/g, "\\'");
 }
+
+
+window.logoutAdmin = async () => {
+  if (!confirm('Are you sure you want to sign out of the dispatch console?')) return;
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+  } catch (e) {}
+  localStorage.removeItem('ynt_admin_token');
+  localStorage.removeItem('ynt_admin_user');
+  sessionStorage.removeItem('ynt_admin_token');
+  sessionStorage.removeItem('ynt_admin_user');
+  window.location.replace('/login');
+};

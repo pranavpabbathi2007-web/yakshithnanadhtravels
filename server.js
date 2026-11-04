@@ -149,6 +149,10 @@ function serveStaticFile(req, res, rawPathname) {
   clean = clean.split('?')[0]; // remove query string if present
   
   // Specific alias routes
+  if (clean === '/login' || clean === '/login/' || clean === '/login.html') {
+    return serveFileDirectly(res, path.join(PUBLIC_DIR, 'login.html'));
+  }
+
   if (clean === '/admin' || clean === '/admin/' || clean === '/admin.html') {
     return serveFileDirectly(res, path.join(PUBLIC_DIR, 'admin.html'));
   }
@@ -223,6 +227,9 @@ const server = http.createServer(async (req, res) => {
   // DIRECT PAGE ROUTES (Priority)
   // ==========================================================================
   if (method === 'GET') {
+    if (pathname === '/login' || pathname === '/login/' || pathname === '/login.html') {
+      return serveFileDirectly(res, path.join(PUBLIC_DIR, 'login.html'));
+    }
     if (pathname === '/admin' || pathname === '/admin/' || pathname === '/admin.html') {
       return serveFileDirectly(res, path.join(PUBLIC_DIR, 'admin.html'));
     }
@@ -234,6 +241,61 @@ const server = http.createServer(async (req, res) => {
   // ==========================================================================
   // API ENDPOINTS
   // ==========================================================================
+
+  
+  // 0. Authentication Endpoints
+  if (pathname === '/api/login' && method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const email = (body.email || '').trim().toLowerCase();
+      const password = body.password || '';
+
+      const validEmails = [
+        'admin@yakshithnandhtravels.com',
+        'admin@gmail.com',
+        'admin'
+      ];
+      const validPasswords = ['admin', 'Yakshith@2026', 'admin123'];
+
+      if (validEmails.includes(email) && validPasswords.includes(password)) {
+        const token = 'ynt_auth_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+          'Set-Cookie': 'ynt_session=' + token + '; Path=/; SameSite=Lax; Max-Age=86400'
+        });
+        return res.end(JSON.stringify({
+          success: true,
+          token: token,
+          user: {
+            name: 'Master Dispatcher',
+            email: email,
+            role: 'admin'
+          }
+        }));
+      } else {
+        return sendJSON(res, 401, {
+          success: false,
+          error: 'Invalid email or password. Default: admin@yakshithnandhtravels.com / admin'
+        });
+      }
+    } catch (err) {
+      return sendJSON(res, 400, { success: false, error: 'Malformed login request.' });
+    }
+  }
+
+  if (pathname === '/api/logout' && method === 'POST') {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Set-Cookie': 'ynt_session=; Path=/; Max-Age=0'
+    });
+    return res.end(JSON.stringify({ success: true, message: 'Logged out successfully.' }));
+  }
+
+  if (pathname === '/api/auth-status' && method === 'GET') {
+    return sendJSON(res, 200, { success: true, authenticated: true });
+  }
 
   // 1. Health Check
   if (pathname === '/health' || pathname === '/api/health') {

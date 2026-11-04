@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    (function() {
+      var token = localStorage.getItem('ynt_admin_token') || sessionStorage.getItem('ynt_admin_token');
+      if (!token) {
+        window.location.replace('/login');
+      }
+    })();
+  </script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin & Dispatch Management | Yakshith Nandh Travels</title>
@@ -625,6 +634,12 @@
           <a href="/" target="_blank" class="btn btn-primary btn-sm" style="background:#FFF9F0; color:var(--color-primary); border:none;">
             <span>Open Live Website ↗</span>
           </a>
+          <button type="button" id="signOutBtn" class="btn btn-secondary btn-sm" onclick="logoutAdmin()" style="display:inline-flex; align-items:center; gap:6px; color:var(--color-primary); background:#FFF9F0; border:1.5px solid var(--color-accent-gold); font-weight:700; cursor:pointer;" title="Sign out of Admin Console">
+            <svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            <span>Sign Out</span>
+          </button>
         </div>
 
       </div>
