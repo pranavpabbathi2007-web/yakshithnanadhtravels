@@ -137,11 +137,51 @@ const SEED_DATA = {
     }
   ],
   destinations: [
-    { id: 1, name: 'Tirumala Sri Venkateswara Temple', subtitle: 'Sacred Hill Shrine', distance: '22 km', duration: '45 mins', description: 'The revered abode of Lord Balaji atop the sacred Seven Hills of Seshachalam.' },
-    { id: 2, name: 'Sri Kalahasteeswara Temple', subtitle: 'Rahu-Ketu Kshetra & Vayu Lingam', distance: '38 km', duration: '50 mins', description: 'Ancient Shiva temple renowned worldwide for Rahu-Ketu Sarpa Dosha Nivarana pujas.' },
-    { id: 3, name: 'Kanipakam Varasiddhi Vinayaka', subtitle: 'Self-Manifested Swayambhu Ganesha', distance: '72 km', duration: '1.5 hrs', description: 'A sacred water shrine where the historic Ganesha idol is known to grow continuously in size.' },
-    { id: 4, name: 'Sri Padmavathi Ammavari Temple', subtitle: 'Tiruchanoor Divine Mother', distance: '5 km', duration: '15 mins', description: 'The essential consort shrine where pilgrims seek blessings before or after Tirumala darshan.' },
-    { id: 5, name: 'Sripuram Golden Temple (Vellore)', subtitle: 'Gilded Mahalakshmi Shrine', distance: '105 km', duration: '2.5 hrs', description: 'Magnificent temple layered with over 1,500 kilograms of pure gold leaf.' }
+    {
+      id: 1,
+      name: 'Tirumala Sri Venkateswara Temple',
+      subtitle: 'Sacred Hill Shrine',
+      distance: '22 km',
+      duration: '45 mins',
+      description: 'The revered abode of Lord Balaji atop the sacred Seven Hills of Seshachalam.',
+      image_url: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      id: 2,
+      name: 'Sri Kalahasteeswara Temple',
+      subtitle: 'Rahu-Ketu Kshetra & Vayu Lingam',
+      distance: '38 km',
+      duration: '50 mins',
+      description: 'Ancient Shiva temple renowned worldwide for Rahu-Ketu Sarpa Dosha Nivarana pujas.',
+      image_url: 'https://images.unsplash.com/photo-1609766857329-a1b7e1933010?auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      id: 3,
+      name: 'Kanipakam Varasiddhi Vinayaka',
+      subtitle: 'Self-Manifested Swayambhu Ganesha',
+      distance: '72 km',
+      duration: '1.5 hrs',
+      description: 'A sacred water shrine where the historic Ganesha idol is known to grow continuously in size.',
+      image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      id: 4,
+      name: 'Sri Padmavathi Ammavari Temple',
+      subtitle: 'Tiruchanoor Divine Mother',
+      distance: '5 km',
+      duration: '15 mins',
+      description: 'The essential consort shrine where pilgrims seek blessings before or after Tirumala darshan.',
+      image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      id: 5,
+      name: 'Sripuram Golden Temple (Vellore)',
+      subtitle: 'Gilded Mahalakshmi Shrine',
+      distance: '105 km',
+      duration: '2.5 hrs',
+      description: 'Magnificent temple layered with over 1,500 kilograms of pure gold leaf.',
+      image_url: 'https://images.unsplash.com/photo-1590073242678-70ee3fc28e8e?auto=format&fit=crop&w=800&q=80'
+    }
   ],
   contacts: [
     { id: 1, name: 'Padmavathi Devi', phone: '+91 98480 33445', email: 'padma@example.com', message: 'Looking for 3-day round trip cab package for 6 elders visiting Tirumala and Kanipakam in December.', status: 'New', created_at: '2026-11-04 08:20 AM' }
@@ -178,7 +218,7 @@ function setStorage(key, val) {
 
 /**
  * High-performance client-side image compression
- * Converts any camera or WhatsApp image into an optimized, fast-loading JPEG (~50-80KB)
+ * Converts camera or mobile photos into an optimized, fast-loading JPEG (~50-80KB)
  */
 function compressVehicleImage(file) {
   return new Promise((resolve) => {
@@ -242,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const vehicleForm = document.getElementById('vehicleForm');
   const vehicleImageFile = document.getElementById('veh_image_file');
   const destinationForm = document.getElementById('destinationForm');
+  const destinationImageFile = document.getElementById('dest_image_file');
   const settingsForm = document.getElementById('settingsForm');
 
   // Load All Sections Data
@@ -255,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
     viewPanels.forEach(p => {
       p.classList.toggle('active', p.getAttribute('id') === viewId);
     });
-    // Remove hash cleanly if any exists
     if (window.location.hash) {
       try {
         history.replaceState(null, document.title, window.location.pathname + window.location.search);
@@ -271,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Check URL query view parameter (e.g. ?view=fleet)
+  // Check URL query view parameter (e.g. ?view=destinations)
   const urlParams = new URLSearchParams(window.location.search);
   const viewParam = urlParams.get('view');
   if (viewParam) {
@@ -450,7 +490,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // VEHICLE IMAGE UPLOAD & VEHICLE FORM HANDLER
   // ==========================================================================
 
-  // Vehicle Image File Input change (Instant preview & optimization + Firebase Cloud Storage)
   if (vehicleImageFile) {
     vehicleImageFile.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
@@ -491,14 +530,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
         }
       } catch (uploadErr) {
-        // Fallback: urlInput ALREADY holds compressed.dataUrl, so the image is safely saved!
         console.warn('Firebase Storage upload note:', uploadErr.message);
         if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
       }
     });
   }
 
-  // Vehicle Form Submit (Seats is text input data, Airbags is text input, image URL updated)
   if (vehicleForm) {
     vehicleForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -509,7 +546,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving Vehicle...';
       }
 
-      // Check if a file was selected but not yet compressed into image_url
       const pickedFile = vehicleImageFile && vehicleImageFile.files && vehicleImageFile.files[0];
       let imageUrl = document.getElementById('veh_image_url').value.trim();
       if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
@@ -526,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         category: document.getElementById('veh_category').value.trim(),
         capacity: document.getElementById('veh_capacity').value.trim() || '4 Seater',
         airbags: airbagsVal || 'Dual Airbags',
-        luggage_bags: airbagsVal || 'Dual Airbags', // backwards compatibility
+        luggage_bags: airbagsVal || 'Dual Airbags',
         rate_per_km: document.getElementById('veh_rate').value.trim(),
         description: document.getElementById('veh_desc').value.trim(),
         image_url: imageUrl,
@@ -543,7 +579,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('API offline');
       } catch (err) {
-        // LocalStorage fallback for Vercel/offline
         const fleet = getStorage('fleet', SEED_DATA.fleet);
         if (id) {
           const idx = fleet.findIndex(v => String(v.id) === String(id));
@@ -565,6 +600,105 @@ document.addEventListener('DOMContentLoaded', () => {
       window.closeVehicleModal();
       loadFleet();
       alert(id ? 'Vehicle updated successfully!' : 'Vehicle added to fleet!');
+    });
+  }
+
+  // ==========================================================================
+  // DESTINATION IMAGE UPLOAD & DESTINATION FORM HANDLER
+  // ==========================================================================
+
+  if (destinationImageFile) {
+    destinationImageFile.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const previewBox = document.getElementById('dest_image_preview_box');
+      const previewImg = document.getElementById('dest_image_preview');
+      const statusText = document.getElementById('dest_upload_status');
+      const urlInput = document.getElementById('dest_image_url');
+
+      if (previewBox) previewBox.style.display = 'flex';
+      if (statusText) statusText.innerHTML = '⚡ Optimizing photo...';
+
+      // 1. Immediately compress & set urlInput so new photo is ready immediately!
+      const compressed = await compressVehicleImage(file);
+      if (previewImg) previewImg.src = compressed.dataUrl;
+      if (urlInput) urlInput.value = compressed.dataUrl;
+      if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
+
+      // 2. Upload to Firebase Cloud Storage with 4-second timeout
+      try {
+        const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+        const fileRef = storageRef(storage, `destinations/${filename}`);
+
+        const uploadTask = (async () => {
+          const snapshot = await uploadBytes(fileRef, compressed.blob);
+          return await getDownloadURL(snapshot.ref);
+        })();
+
+        const timeoutTask = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 4000)
+        );
+
+        const downloadUrl = await Promise.race([uploadTask, timeoutTask]);
+        if (downloadUrl) {
+          if (urlInput) urlInput.value = downloadUrl;
+          if (previewImg) previewImg.src = downloadUrl;
+          if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
+        }
+      } catch (uploadErr) {
+        console.warn('Firebase Storage destination upload note:', uploadErr.message);
+        if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
+      }
+    });
+  }
+
+  if (destinationForm) {
+    destinationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('destId').value;
+
+      const destFile = destinationImageFile && destinationImageFile.files && destinationImageFile.files[0];
+      let imageUrl = document.getElementById('dest_image_url').value.trim();
+      if (destFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
+        const compressed = await compressVehicleImage(destFile);
+        imageUrl = compressed.dataUrl;
+        document.getElementById('dest_image_url').value = imageUrl;
+      }
+
+      const payload = {
+        name: document.getElementById('dest_name').value.trim(),
+        subtitle: document.getElementById('dest_subtitle').value.trim(),
+        distance: document.getElementById('dest_distance').value.trim(),
+        duration: document.getElementById('dest_duration').value.trim(),
+        description: document.getElementById('dest_desc').value.trim(),
+        image_url: imageUrl
+      };
+
+      try {
+        const url = id ? `/api/destinations/${id}` : '/api/destinations';
+        const method = id ? 'PATCH' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('API offline');
+      } catch (err) {
+        const dests = getStorage('destinations', SEED_DATA.destinations);
+        if (id) {
+          const idx = dests.findIndex(d => String(d.id) === String(id));
+          if (idx !== -1) dests[idx] = { ...dests[idx], ...payload };
+        } else {
+          payload.id = Date.now();
+          dests.push(payload);
+        }
+        setStorage('destinations', dests);
+      }
+
+      window.closeDestinationModal();
+      loadDestinations();
+      alert(id ? 'Destination updated successfully!' : 'Destination added successfully!');
     });
   }
 
@@ -604,46 +738,6 @@ document.addEventListener('DOMContentLoaded', () => {
       window.closeServiceEditModal();
       loadServices();
       alert(id ? 'Service updated!' : 'Service created!');
-    });
-  }
-
-  // Destination Form Submit
-  if (destinationForm) {
-    destinationForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('destId').value;
-      const payload = {
-        name: document.getElementById('dest_name').value.trim(),
-        subtitle: document.getElementById('dest_subtitle').value.trim(),
-        distance: document.getElementById('dest_distance').value.trim(),
-        duration: document.getElementById('dest_duration').value.trim(),
-        description: document.getElementById('dest_desc').value.trim()
-      };
-
-      try {
-        const url = id ? `/api/destinations/${id}` : '/api/destinations';
-        const method = id ? 'PATCH' : 'POST';
-        const res = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('API offline');
-      } catch (err) {
-        const dests = getStorage('destinations', SEED_DATA.destinations);
-        if (id) {
-          const idx = dests.findIndex(d => String(d.id) === String(id));
-          if (idx !== -1) dests[idx] = { ...dests[idx], ...payload };
-        } else {
-          payload.id = Date.now();
-          dests.push(payload);
-        }
-        setStorage('destinations', dests);
-      }
-
-      window.closeDestinationModal();
-      loadDestinations();
-      alert(id ? 'Destination updated!' : 'Destination added!');
     });
   }
 
@@ -709,7 +803,6 @@ async function loadStats() {
     }
   } catch (err) {}
 
-  // Fallback: Calculate from stored bookings
   const allBookings = getStorage('bookings', SEED_DATA.bookings);
   const todayStr = new Date().toISOString().split('T')[0];
   const total = allBookings.length;
@@ -949,7 +1042,7 @@ async function loadFleet() {
   }).join('');
 }
 
-// 5. Destinations Cards
+// 5. Destinations Cards (Shows destination photo banner, distance & details)
 async function loadDestinations() {
   const container = document.getElementById('destinationsCardsContainer');
   if (!container) return;
@@ -967,27 +1060,43 @@ async function loadDestinations() {
     allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
   }
 
-  container.innerHTML = allDestinationsData.map(d => `
-    <div class="admin-content-card">
-      <span class="card-top-tag">Destination #${d.id}</span>
-      <h3>${escapeHTML(d.name)}</h3>
-      <div style="font-family:var(--font-subheading); font-size:0.95rem; color:var(--color-accent-gold-dark); font-weight:600; margin-bottom:6px;">
-        ${escapeHTML(d.subtitle || '')}
-      </div>
-      <p>${escapeHTML(d.description || '')}</p>
-      <div style="font-size:0.84rem; color:var(--color-primary); margin-bottom:12px;">
-        📍 <strong>${escapeHTML(d.distance || '')}</strong> • ⏱️ ${escapeHTML(d.duration || '')}
-      </div>
-      <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditDestinationModal(${d.id})">Edit Destination</button>
-        <div class="action-btn-group">
-          <button type="button" class="action-icon-btn delete" title="Delete Destination" onclick="deleteDestinationRecord(${d.id})">
-            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </button>
+  const defaultDestPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+
+  container.innerHTML = allDestinationsData.map(d => {
+    const isFirebase = d.image_url && d.image_url.includes('firebasestorage.app');
+    const displayImg = d.image_url || defaultDestPhoto;
+
+    return `
+      <div class="admin-content-card">
+        <div style="width:100%; height:150px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(d.name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultDestPhoto}'">
+          <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.9); color:#FFF9F0;">Destination #${d.id}</span>
+          ${isFirebase ? `
+            <span style="position:absolute; top:8px; right:8px; background:#D86300; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">🔥 Cloud Asset</span>
+          ` : ''}
+        </div>
+
+        <h3 style="margin-top:0; margin-bottom:6px;">${escapeHTML(d.name)}</h3>
+        <div style="font-family:var(--font-subheading); font-size:0.95rem; color:var(--color-accent-gold-dark); font-weight:600; margin-bottom:8px;">
+          ${escapeHTML(d.subtitle || '')}
+        </div>
+        <p style="margin-bottom:12px; font-size:0.85rem;">${escapeHTML(d.description || '')}</p>
+
+        <div style="font-size:0.84rem; color:var(--color-primary); margin-bottom:12px; background:#FFF9F0; padding:6px 10px; border-radius:6px; border:1px solid var(--color-border);">
+          📍 <strong>${escapeHTML(d.distance || 'Local')}</strong> • ⏱️ ${escapeHTML(d.duration || 'Half Day')}
+        </div>
+
+        <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openEditDestinationModal(${d.id})">Edit Destination</button>
+          <div class="action-btn-group">
+            <button type="button" class="action-icon-btn delete" title="Delete Destination" onclick="deleteDestinationRecord(${d.id})">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // 6. Messages Table
@@ -1164,18 +1273,38 @@ window.openAddDestinationModal = () => {
   document.getElementById('destModalTitle').textContent = 'Add New Destination';
   document.getElementById('destId').value = '';
   document.getElementById('destinationForm').reset();
+  const previewBox = document.getElementById('dest_image_preview_box');
+  if (previewBox) previewBox.style.display = 'none';
+  const urlInput = document.getElementById('dest_image_url');
+  if (urlInput) urlInput.value = '';
   document.getElementById('destinationModal').classList.add('open');
 };
+
 window.openEditDestinationModal = (id) => {
   const dest = allDestinationsData.find(d => d.id === id);
   if (!dest) return;
   document.getElementById('destModalTitle').textContent = 'Edit Destination';
   document.getElementById('destId').value = dest.id;
-  document.getElementById('dest_name').value = dest.name;
+  document.getElementById('dest_name').value = dest.name || '';
   document.getElementById('dest_subtitle').value = dest.subtitle || '';
   document.getElementById('dest_distance').value = dest.distance || '';
   document.getElementById('dest_duration').value = dest.duration || '';
   document.getElementById('dest_desc').value = dest.description || '';
+
+  const urlInput = document.getElementById('dest_image_url');
+  const previewBox = document.getElementById('dest_image_preview_box');
+  const previewImg = document.getElementById('dest_image_preview');
+  const statusText = document.getElementById('dest_upload_status');
+
+  if (urlInput) urlInput.value = dest.image_url || '';
+  if (dest.image_url) {
+    if (previewBox) previewBox.style.display = 'flex';
+    if (previewImg) previewImg.src = dest.image_url;
+    if (statusText) statusText.textContent = dest.image_url.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Destination Photo';
+  } else {
+    if (previewBox) previewBox.style.display = 'none';
+  }
+
   document.getElementById('destinationModal').classList.add('open');
 };
 window.closeDestinationModal = () => document.getElementById('destinationModal').classList.remove('open');

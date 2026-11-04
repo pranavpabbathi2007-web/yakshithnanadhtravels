@@ -1160,6 +1160,22 @@
           <label class="form-label">Spiritual / Heritage Subtitle:</label>
           <input type="text" id="dest_subtitle" class="form-control" placeholder="e.g. Abode of Lord Sri Venkateswara" required>
         </div>
+
+        <!-- Destination Photo Upload with Firebase Storage & Instant Preview -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Destination Photo / Image (Displayed on Home Screen):</label>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="file" id="dest_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
+            <div id="dest_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
+              <img id="dest_image_preview" src="" alt="Destination Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+              <div style="flex:1;">
+                <div id="dest_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
+                <div style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Firebase Cloud & Synced with Live Website</div>
+              </div>
+            </div>
+            <input type="text" id="dest_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+        </div>
         <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group">
             <label class="form-label">Distance from Tirupati:</label>

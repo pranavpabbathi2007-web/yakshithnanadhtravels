@@ -95,9 +95,15 @@ function initDatabase() {
       distance TEXT NOT NULL,
       duration TEXT NOT NULL,
       description TEXT NOT NULL,
-      is_popular INTEGER DEFAULT 1
+      is_popular INTEGER DEFAULT 1,
+      image_url TEXT
     );
   `);
+  try {
+    db.exec(`ALTER TABLE destinations ADD COLUMN image_url TEXT;`);
+  } catch (e) {
+    // column already exists
+  }
 
   // 5. Contact Inquiries Table
   db.exec(`
@@ -573,8 +579,8 @@ function getAllDestinations() {
 
 function createDestination(data) {
   const stmt = db.prepare(`
-    INSERT INTO destinations (name, subtitle, distance, duration, description, is_popular)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO destinations (name, subtitle, distance, duration, description, is_popular, image_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   const info = stmt.run(
     data.name.trim(),
@@ -582,7 +588,8 @@ function createDestination(data) {
     data.distance ? data.distance.trim() : 'Local',
     data.duration ? data.duration.trim() : 'Half Day',
     data.description.trim(),
-    data.is_popular !== undefined ? (data.is_popular ? 1 : 0) : 1
+    data.is_popular !== undefined ? (data.is_popular ? 1 : 0) : 1,
+    data.image_url ? data.image_url.trim() : ''
   );
   return db.prepare('SELECT * FROM destinations WHERE id = ?').get(info.lastInsertRowid);
 }
@@ -590,7 +597,7 @@ function createDestination(data) {
 function updateDestination(id, data) {
   db.prepare(`
     UPDATE destinations
-    SET name = ?, subtitle = ?, distance = ?, duration = ?, description = ?, is_popular = ?
+    SET name = ?, subtitle = ?, distance = ?, duration = ?, description = ?, is_popular = ?, image_url = ?
     WHERE id = ?
   `).run(
     data.name,
@@ -599,6 +606,7 @@ function updateDestination(id, data) {
     data.duration,
     data.description,
     data.is_popular ? 1 : 0,
+    data.image_url || '',
     id
   );
   return db.prepare('SELECT * FROM destinations WHERE id = ?').get(id);

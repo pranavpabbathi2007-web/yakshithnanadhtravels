@@ -662,6 +662,61 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     }).join('');
   };
 
+  // Dynamic Destinations Loader (Displays custom/updated images on Home Screen)
+  const loadWebsiteDestinations = async () => {
+    const grid = document.querySelector('.destinations-grid');
+    if (!grid) return;
+
+    let dests = null;
+    try {
+      const res = await fetch('/api/destinations');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.destinations && data.destinations.length > 0) dests = data.destinations;
+      }
+    } catch (e) {}
+
+    if (!dests) {
+      try {
+        const stored = localStorage.getItem('ynt_destinations');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) dests = parsed;
+        }
+      } catch (e) {}
+    }
+
+    if (!dests || dests.length === 0) return;
+
+    const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+    grid.innerHTML = dests.map((d, idx) => {
+      const imgUrl = d.image_url || defaultDestImg;
+      return `
+        <div class="destination-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+          <div class="destination-img-box">
+            <img src="${imgUrl}" alt="${d.name} - Yakshith Nandh Travels" class="destination-img" loading="lazy" onerror="this.src='${defaultDestImg}'">
+            <div class="destination-badge">${d.subtitle || 'Sacred Abode'}</div>
+          </div>
+          <div class="destination-info">
+            <h3 class="destination-title">${d.name}</h3>
+            <div class="destination-subtitle">${d.subtitle || ''}</div>
+            <p class="destination-desc">${d.description || ''}</p>
+            <div class="destination-footer">
+              <span class="destination-dist">
+                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /></svg>
+                <span>${d.distance || 'Local'} • ${d.duration || 'Half Day'}</span>
+              </span>
+              <button type="button" class="btn btn-primary btn-sm" onclick="selectDestinationForBooking('${(d.name || '').replace(/'/g, "\\'")}', 'Outstation Pilgrimage')">
+                Plan Trip
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
   loadWebsiteFleet();
+  loadWebsiteDestinations();
   checkAdminAccess();
 });
