@@ -80,6 +80,11 @@ function initDatabase() {
   } catch (e) {
     // column already exists
   }
+  try {
+    db.exec(`ALTER TABLE fleet ADD COLUMN airbags TEXT;`);
+  } catch (e) {
+    // column already exists
+  }
 
   // 4. Destinations Section Table
   db.exec(`
@@ -516,36 +521,40 @@ function getFleet() {
 }
 
 function addFleetVehicle(data) {
+  const airbagsVal = String(data.airbags || data.luggage_bags || 'Dual Airbags');
   const info = db.prepare(`
-    INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km, image_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km, image_url, airbags)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.model_name,
     data.category || 'Standard',
     String(data.capacity || '4 Seater'),
-    String(data.luggage_bags || '3 Bags'),
+    airbagsVal,
     data.is_available !== undefined ? (data.is_available ? 1 : 0) : 1,
     data.description || '',
     data.rate_per_km || '',
-    data.image_url || ''
+    data.image_url || '',
+    airbagsVal
   );
   return db.prepare('SELECT * FROM fleet WHERE id = ?').get(info.lastInsertRowid);
 }
 
 function updateFleetVehicle(id, data) {
+  const airbagsVal = String(data.airbags || data.luggage_bags || 'Dual Airbags');
   db.prepare(`
     UPDATE fleet
-    SET model_name = ?, category = ?, capacity = ?, luggage_bags = ?, is_available = ?, description = ?, rate_per_km = ?, image_url = ?
+    SET model_name = ?, category = ?, capacity = ?, luggage_bags = ?, is_available = ?, description = ?, rate_per_km = ?, image_url = ?, airbags = ?
     WHERE id = ?
   `).run(
     data.model_name,
     data.category,
     String(data.capacity || '4 Seater'),
-    String(data.luggage_bags || '3 Bags'),
+    airbagsVal,
     data.is_available ? 1 : 0,
     data.description,
     data.rate_per_km,
     data.image_url || '',
+    airbagsVal,
     id
   );
   return db.prepare('SELECT * FROM fleet WHERE id = ?').get(id);

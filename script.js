@@ -628,7 +628,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           <div class="vehicle-image-wrapper">
             <img src="${imgUrl}" alt="${v.model_name} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.src='${defaultImg}'">
             <div class="vehicle-badge-overlay">${v.category || 'Special Fleet'}</div>
-            <div class="vehicle-specs-overlay">${v.capacity || '4 Seater'} • ${v.luggage_bags || '3 Bags'}</div>
+            <div class="vehicle-specs-overlay">${v.capacity || '4 Seater'} • ${v.airbags || v.luggage_bags || 'Dual Airbags'}</div>
           </div>
           <div class="vehicle-details">
             <h3 class="vehicle-name">${v.model_name}</h3>
@@ -644,8 +644,8 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
                 <span>Climate Control</span>
               </div>
               <div class="spec-item">
-                <strong>${v.luggage_bags || 'Luggage'}</strong>
-                <span>Boot Space</span>
+                <strong>${v.airbags || v.luggage_bags || 'Dual Airbags'}</strong>
+                <span>Safety Airbags</span>
               </div>
             </div>
             <div class="vehicle-action-footer">

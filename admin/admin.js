@@ -1,7 +1,7 @@
 /**
  * YAKSHITH NANDH TRAVELS - Admin Master Console Logic
  * Complete control over every section of the website
- * Equipped with Firebase Cloud Storage & Resilient Data Layer
+ * Equipped with Client-side Image Optimization & Firebase Cloud Storage
  */
 
 import { storage } from './firebase-config.js';
@@ -104,7 +104,8 @@ const SEED_DATA = {
       model_name: 'Swift Dzire',
       category: 'Sedan',
       capacity: '4 Passengers',
-      luggage_bags: '2 Bags',
+      airbags: 'Dual Front Airbags',
+      luggage_bags: 'Dual Front Airbags',
       rate_per_km: '₹12/km',
       description: 'Clean, fuel-efficient sedan ideal for small families and airport transfers.',
       image_url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
@@ -115,9 +116,10 @@ const SEED_DATA = {
       model_name: 'Toyota Innova',
       category: 'Premium SUV',
       capacity: '7-8 Seats',
-      luggage_bags: '4 Bags',
+      airbags: 'Dual Front Airbags',
+      luggage_bags: 'Dual Front Airbags',
       rate_per_km: '₹18/km',
-      description: 'Spacious family MPV with captain seats and ample luggage capacity.',
+      description: 'Spacious family MPV with captain seats and ample comfort on Tirupati hills.',
       image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
       is_available: 1
     },
@@ -125,8 +127,9 @@ const SEED_DATA = {
       id: 3,
       model_name: 'Innova Crysta',
       category: 'Luxury MPV',
-      capacity: '7 Seater',
-      luggage_bags: '5 Bags',
+      capacity: '7+1 Seater',
+      airbags: '7 Airbags (Knee + Curtain)',
+      luggage_bags: '7 Airbags (Knee + Curtain)',
       rate_per_km: '₹22/km',
       description: 'Top-tier pilgrimage comfort with plush interiors and superior ride quality on Tirumala mountain roads.',
       image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
@@ -173,6 +176,50 @@ function setStorage(key, val) {
   } catch (e) {}
 }
 
+/**
+ * High-performance client-side image compression
+ * Converts any camera or WhatsApp image into an optimized, fast-loading JPEG (~50-80KB)
+ */
+function compressVehicleImage(file) {
+  return new Promise((resolve) => {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+      resolve({ blob: file, dataUrl: '' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 900;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        canvas.toBlob((blob) => {
+          resolve({ blob: blob || file, dataUrl });
+        }, 'image/jpeg', 0.82);
+      };
+      img.onerror = () => resolve({ blob: file, dataUrl: e.target.result });
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve({ blob: file, dataUrl: '' });
+    reader.readAsDataURL(file);
+  });
+}
+
 let currentStatusFilter = 'All';
 let currentSearchTerm = '';
 let allServicesData = [];
@@ -196,8 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const vehicleImageFile = document.getElementById('veh_image_file');
   const destinationForm = document.getElementById('destinationForm');
   const settingsForm = document.getElementById('settingsForm');
-  const newCallbackForm = document.getElementById('newCallbackForm');
-  const messageStatusForm = document.getElementById('messageStatusForm');
 
   // Load All Sections Data
   loadAllData();
@@ -301,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('API offline');
       } catch (err) {
-        // LocalStorage fallback
         const bookings = getStorage('bookings', SEED_DATA.bookings);
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
         if (idx !== -1) {
@@ -336,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('API offline');
       } catch (err) {
-        // LocalStorage fallback
         const bookings = getStorage('bookings', SEED_DATA.bookings);
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
         if (idx !== -1) {
@@ -379,7 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('API offline');
       } catch (err) {
-        // LocalStorage fallback
         const bookings = getStorage('bookings', SEED_DATA.bookings);
         const newRef = 'YNT-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
         const newBooking = {
@@ -408,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // VEHICLE IMAGE UPLOAD & VEHICLE FORM HANDLER
   // ==========================================================================
 
-  // Vehicle Image File Input change (Firebase Storage Upload)
+  // Vehicle Image File Input change (Instant preview & optimization + Firebase Cloud Storage)
   if (vehicleImageFile) {
     vehicleImageFile.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
@@ -420,35 +462,43 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('veh_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (previewImg) previewImg.src = URL.createObjectURL(file);
-      if (statusText) statusText.innerHTML = '⏳ Uploading to Firebase Cloud Storage...';
+      if (statusText) statusText.innerHTML = '⚡ Optimizing photo...';
 
+      // 1. Immediately compress & set urlInput so new photo is ready immediately!
+      const compressed = await compressVehicleImage(file);
+      if (previewImg) previewImg.src = compressed.dataUrl;
+      if (urlInput) urlInput.value = compressed.dataUrl;
+      if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
+
+      // 2. Upload to Firebase Cloud Storage with 4-second timeout
       try {
         const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
         const fileRef = storageRef(storage, `vehicles/${filename}`);
-        const snapshot = await uploadBytes(fileRef, file);
-        const downloadUrl = await getDownloadURL(snapshot.ref);
 
-        if (urlInput) urlInput.value = downloadUrl;
-        if (previewImg) previewImg.src = downloadUrl;
-        if (statusText) statusText.innerHTML = '✅ Saved in Firebase Storage (Cloud)';
+        const uploadTask = (async () => {
+          const snapshot = await uploadBytes(fileRef, compressed.blob);
+          return await getDownloadURL(snapshot.ref);
+        })();
+
+        const timeoutTask = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 4000)
+        );
+
+        const downloadUrl = await Promise.race([uploadTask, timeoutTask]);
+        if (downloadUrl) {
+          if (urlInput) urlInput.value = downloadUrl;
+          if (previewImg) previewImg.src = downloadUrl;
+          if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
+        }
       } catch (uploadErr) {
-        console.warn('Firebase Storage direct upload note:', uploadErr.message);
-
-        // Fallback: Read as base64 Data URL so image is safely preserved
-        const reader = new FileReader();
-        reader.onload = (re) => {
-          const dataUrl = re.target.result;
-          if (urlInput) urlInput.value = dataUrl;
-          if (previewImg) previewImg.src = dataUrl;
-          if (statusText) statusText.innerHTML = '✅ Image ready (Local/Cloud synced)';
-        };
-        reader.readAsDataURL(file);
+        // Fallback: urlInput ALREADY holds compressed.dataUrl, so the image is safely saved!
+        console.warn('Firebase Storage upload note:', uploadErr.message);
+        if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
       }
     });
   }
 
-  // Vehicle Form Submit (Seats is text input data, image URL stored)
+  // Vehicle Form Submit (Seats is text input data, Airbags is text input, image URL updated)
   if (vehicleForm) {
     vehicleForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -456,17 +506,30 @@ document.addEventListener('DOMContentLoaded', () => {
       const saveBtn = document.getElementById('saveVehicleSubmitBtn');
       if (saveBtn) {
         saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving...';
+        saveBtn.textContent = 'Saving Vehicle...';
       }
+
+      // Check if a file was selected but not yet compressed into image_url
+      const pickedFile = vehicleImageFile && vehicleImageFile.files && vehicleImageFile.files[0];
+      let imageUrl = document.getElementById('veh_image_url').value.trim();
+      if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
+        const compressed = await compressVehicleImage(pickedFile);
+        imageUrl = compressed.dataUrl;
+        document.getElementById('veh_image_url').value = imageUrl;
+      }
+
+      const airbagsInput = document.getElementById('veh_airbags') || document.getElementById('veh_luggage');
+      const airbagsVal = airbagsInput ? airbagsInput.value.trim() : 'Dual Airbags';
 
       const payload = {
         model_name: document.getElementById('veh_name').value.trim(),
         category: document.getElementById('veh_category').value.trim(),
         capacity: document.getElementById('veh_capacity').value.trim() || '4 Seater',
-        luggage_bags: document.getElementById('veh_luggage').value.trim() || '3 Bags',
+        airbags: airbagsVal || 'Dual Airbags',
+        luggage_bags: airbagsVal || 'Dual Airbags', // backwards compatibility
         rate_per_km: document.getElementById('veh_rate').value.trim(),
         description: document.getElementById('veh_desc').value.trim(),
-        image_url: document.getElementById('veh_image_url').value.trim(),
+        image_url: imageUrl,
         is_available: 1
       };
 
@@ -688,7 +751,6 @@ async function loadBookings() {
       throw new Error('API offline');
     }
   } catch (err) {
-    // Resilient fallback from localStorage
     const all = getStorage('bookings', SEED_DATA.bookings);
     bookingsList = all.filter(b => {
       const matchStatus = currentStatusFilter === 'All' || b.status === currentStatusFilter;
@@ -827,7 +889,7 @@ async function loadServices() {
   `).join('');
 }
 
-// 4. Fleet Section Cards (Shows every vehicle data, Firebase photo, text seats)
+// 4. Fleet Section Cards (Shows every vehicle data, car photo, Airbags option, text seats)
 async function loadFleet() {
   const container = document.getElementById('fleetCardsContainer');
   if (!container) return;
@@ -850,10 +912,11 @@ async function loadFleet() {
   container.innerHTML = allFleetData.map(v => {
     const isFirebase = v.image_url && v.image_url.includes('firebasestorage.app');
     const displayImg = v.image_url || defaultVehiclePhoto;
+    const airbagsDisplay = v.airbags || v.luggage_bags || 'Dual Airbags';
 
     return `
       <div class="admin-content-card">
-        <div style="width:100%; height:140px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <div style="width:100%; height:150px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(v.model_name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultVehiclePhoto}'">
           <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.9); color:#FFF9F0;">${escapeHTML(v.category || 'Fleet')}</span>
           <span style="position:absolute; top:8px; right:8px; background:#2e7d32; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">Active</span>
@@ -864,7 +927,7 @@ async function loadFleet() {
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.82rem; margin-bottom:14px; background:#FFF9F0; padding:8px 10px; border-radius:6px; border:1px solid var(--color-border);">
           <div><strong>Seats:</strong> ${escapeHTML(String(v.capacity || '4 Passengers'))}</div>
-          <div><strong>Luggage:</strong> ${escapeHTML(String(v.luggage_bags || '3 Bags'))}</div>
+          <div><strong>Airbags:</strong> ${escapeHTML(String(airbagsDisplay))}</div>
           <div style="grid-column:span 2; color:var(--color-primary); font-weight:700;"><strong>Tariff:</strong> ${escapeHTML(v.rate_per_km || 'Competitive')}</div>
           ${isFirebase ? `
             <div style="grid-column:span 2; font-size:0.72rem; color:#D86300; font-weight:600; display:flex; align-items:center; gap:4px;">
@@ -1053,6 +1116,10 @@ window.openAddVehicleModal = () => {
   document.getElementById('vehicleModalTitle').textContent = 'Add New Vehicle';
   document.getElementById('vehicleId').value = '';
   document.getElementById('vehicleForm').reset();
+
+  const airbagsEl = document.getElementById('veh_airbags') || document.getElementById('veh_luggage');
+  if (airbagsEl) airbagsEl.value = 'Dual Airbags';
+
   const previewBox = document.getElementById('veh_image_preview_box');
   if (previewBox) previewBox.style.display = 'none';
   const urlInput = document.getElementById('veh_image_url');
@@ -1068,7 +1135,10 @@ window.openEditVehicleModal = (id) => {
   document.getElementById('veh_name').value = veh.model_name || '';
   document.getElementById('veh_category').value = veh.category || '';
   document.getElementById('veh_capacity').value = veh.capacity || '';
-  document.getElementById('veh_luggage').value = veh.luggage_bags || '';
+
+  const airbagsEl = document.getElementById('veh_airbags') || document.getElementById('veh_luggage');
+  if (airbagsEl) airbagsEl.value = veh.airbags || veh.luggage_bags || 'Dual Airbags';
+
   document.getElementById('veh_rate').value = veh.rate_per_km || '';
   document.getElementById('veh_desc').value = veh.description || '';
 
@@ -1081,7 +1151,7 @@ window.openEditVehicleModal = (id) => {
   if (veh.image_url) {
     if (previewBox) previewBox.style.display = 'flex';
     if (previewImg) previewImg.src = veh.image_url;
-    if (statusText) statusText.textContent = veh.image_url.includes('firebasestorage') ? 'Stored in Firebase Storage' : 'Current Vehicle Image';
+    if (statusText) statusText.textContent = veh.image_url.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Vehicle Photo';
   } else {
     if (previewBox) previewBox.style.display = 'none';
   }
