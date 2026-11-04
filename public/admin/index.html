@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    (function() {
+      var token = localStorage.getItem('ynt_admin_token') || sessionStorage.getItem('ynt_admin_token');
+      if (!token) {
+        var isSub = window.location.pathname.indexOf('/admin/') !== -1;
+        window.location.replace(isSub ? '../login.html' : 'login.html');
+      }
+    })();
+  </script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin & Dispatch Management | Yakshith Nandh Travels</title>
@@ -501,6 +511,105 @@
       font-size: 1.4rem;
       color: var(--color-text-muted);
     }
+
+    /* Mobile & Tablet Responsiveness for All Devices */
+    @media (max-width: 768px) {
+      .admin-top-nav {
+        padding: 10px 0;
+      }
+      .admin-nav-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .admin-brand {
+        gap: 10px;
+      }
+      .admin-crest {
+        width: 36px;
+        height: 36px;
+        font-size: 0.95rem;
+      }
+      .admin-title-box h1 {
+        font-size: 1.05rem;
+      }
+      .admin-title-box span {
+        font-size: 0.7rem;
+      }
+      .admin-main-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+        margin: 1rem 0 0.8rem;
+        scrollbar-width: thin;
+      }
+      .admin-tab-btn {
+        flex: 0 0 auto;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+      .section-control-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 10px;
+      }
+      .search-box {
+        min-width: 100%;
+        width: 100%;
+      }
+      .filter-tabs {
+        display: flex;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+        scrollbar-width: thin;
+      }
+      .filter-tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .kpi-card {
+        padding: 0.9rem;
+      }
+      .kpi-value {
+        font-size: 1.6rem;
+      }
+      .modal-backdrop {
+        padding: 10px;
+      }
+      .modal-box {
+        padding: 1.2rem;
+        max-height: 95vh;
+        width: 100%;
+      }
+      .table-responsive-card {
+        margin-bottom: 1.5rem;
+        -webkit-overflow-scrolling: touch;
+      }
+      .admin-table th, .admin-table td {
+        padding: 10px 8px;
+        font-size: 0.82rem;
+      }
+      .action-btn-group {
+        gap: 4px;
+      }
+      .action-icon-btn {
+        width: 32px;
+        height: 32px;
+      }
+      .cards-grid-admin {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body class="admin-body">
@@ -512,9 +621,15 @@
         
         <a href="/admin" class="admin-brand">
           <div class="admin-crest">YN</div>
-          <div class="admin-title-box">
-            <h1>Yakshith Nandh Travels – Admin Master Console</h1>
-            <span>Tirupati Fleet & Web Operations • 24/7 Hotline +91 88868 30755</span>
+                    <div class="admin-title-box">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <h1>Yakshith Nandh Travels – Admin Master Console</h1>
+              <span class="firebase-status-pill" style="display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; background:rgba(255,150,0,0.18); color:#FFE082; border:1px solid rgba(255,180,0,0.4); padding:2px 8px; border-radius:999px;">
+                <svg style="width:11px;height:11px;fill:#FFB300" viewBox="0 0 24 24"><path d="M4.09 17.51l3.07-5.74L4.9 6.88c-.28-.52-.08-1.17.44-1.45.4-.21.89-.13 1.2.18l8.93 8.93-4.14 7.74c-.58 1.08-2.07 1.49-3.15.91-.71-.38-1.18-1.07-1.28-1.87l-.81-3.81zM19.95 9.07l-2.05-3.84c-.28-.52-.92-.72-1.45-.44-.21.11-.38.28-.49.49L13.8 9.2l4.9 4.9 1.25-5.03zM18.7 14.1l-6.8-6.8-6.9 12.9 10.5 5.9c.9.5 2.1.2 2.6-.7l.6-1.3z"/></svg>
+                <span>Firebase: yakshithnandhtravels</span>
+              </span>
+            </div>
+            <span id="adminSessionInfo" style="display:block; margin-top:2px; font-size:0.75rem; color:var(--color-accent-gold-light);">Tirupati Fleet & Web Operations • 24/7 Hotline +91 88868 30755</span>
           </div>
         </a>
 
@@ -526,6 +641,12 @@
           <a href="/" target="_blank" class="btn btn-primary btn-sm" style="background:#FFF9F0; color:var(--color-primary); border:none;">
             <span>Open Live Website ↗</span>
           </a>
+          <button type="button" id="signOutBtn" class="btn btn-secondary btn-sm" onclick="logoutAdmin()" style="display:inline-flex; align-items:center; gap:6px; color:var(--color-primary); background:#FFF9F0; border:1.5px solid var(--color-accent-gold); font-weight:700; cursor:pointer;" title="Sign out of Admin Console">
+            <svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            <span>Sign Out</span>
+          </button>
         </div>
 
       </div>
@@ -538,13 +659,13 @@
       <div class="sections-bar-content">
         <span style="font-weight:700; color:var(--color-primary);">Quick Website Section Preview:</span>
         <div class="sections-jump-links">
-          <a href="/#home" target="_blank" class="jump-pill">🏠 Hero & Slogan</a>
-          <a href="/#services" target="_blank" class="jump-pill">🛠️ Services (4)</a>
-          <a href="/#vehicles" target="_blank" class="jump-pill">🚗 Our Vehicles</a>
-          <a href="/#destinations" target="_blank" class="jump-pill">🏛️ Sacred Destinations</a>
-          <a href="/#why-choose-us" target="_blank" class="jump-pill">⭐ Trust Pillars</a>
-          <a href="/#booking" target="_blank" class="jump-pill">📝 Booking Form</a>
-          <a href="/#contact" target="_blank" class="jump-pill">📞 Contact & Helplines</a>
+          <a href="/?view=home" target="_blank" class="jump-pill">🏠 Hero & Slogan</a>
+          <a href="/?view=services" target="_blank" class="jump-pill">🛠️ Services (4)</a>
+          <a href="/?view=vehicles" target="_blank" class="jump-pill">🚗 Our Vehicles</a>
+          <a href="/?view=destinations" target="_blank" class="jump-pill">🏛️ Sacred Destinations</a>
+          <a href="/?view=why-choose-us" target="_blank" class="jump-pill">⭐ Trust Pillars</a>
+          <a href="/?view=booking" target="_blank" class="jump-pill">📝 Booking Form</a>
+          <a href="/?view=contact" target="_blank" class="jump-pill">📞 Contact & Helplines</a>
         </div>
       </div>
     </div>
@@ -664,9 +785,12 @@
       <div class="section-control-header">
         <div>
           <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Services Section Management</h2>
-          <span style="font-size:0.82rem; color:var(--color-text-muted);">Control the 4 service offerings displayed on the website</span>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Control the service offerings and rate cards displayed on the live website</span>
         </div>
-        <a href="/#services" target="_blank" class="btn btn-secondary btn-sm">Preview on Live Website ↗</a>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openAddServiceModal()">+ Add New Service</button>
+          <a href="/?view=services" target="_blank" class="btn btn-secondary btn-sm">Preview on Live Website ↗</a>
+        </div>
       </div>
 
       <div id="servicesCardsContainer" class="cards-grid-admin">
@@ -685,7 +809,7 @@
         </div>
         <div style="display:flex; gap:10px;">
           <button type="button" class="btn btn-primary btn-sm" onclick="openAddVehicleModal()">+ Add New Vehicle</button>
-          <a href="/#vehicles" target="_blank" class="btn btn-secondary btn-sm">Preview Vehicles ↗</a>
+          <a href="/?view=vehicles" target="_blank" class="btn btn-secondary btn-sm">Preview Vehicles ↗</a>
         </div>
       </div>
 
@@ -700,10 +824,13 @@
     <div id="destinations-view" class="admin-view-panel">
       <div class="section-control-header">
         <div>
-          <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Sacred Destinations (5)</h2>
-          <span style="font-size:0.82rem; color:var(--color-text-muted);">Manage Tirumala, Kalahasti, Chandragiri, Kanipakam & Tirupati</span>
+          <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Sacred Destinations Management</h2>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Manage Tirumala, Kalahasti, Chandragiri, Kanipakam & new tour locations</span>
         </div>
-        <a href="/#destinations" target="_blank" class="btn btn-secondary btn-sm">Preview Destinations ↗</a>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openAddDestinationModal()">+ Add New Destination</button>
+          <a href="/?view=destinations" target="_blank" class="btn btn-secondary btn-sm">Preview Destinations ↗</a>
+        </div>
       </div>
 
       <div id="destinationsCardsContainer" class="cards-grid-admin">
@@ -718,9 +845,12 @@
       <div class="section-control-header">
         <div>
           <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Customer Inquiries & Callbacks</h2>
-          <span style="font-size:0.82rem; color:var(--color-text-muted);">Messages received via website contact form</span>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Messages & callback requests received via website</span>
         </div>
-        <a href="/#contact" target="_blank" class="btn btn-secondary btn-sm">Preview Contact Section ↗</a>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openNewCallbackModal()">+ Record Phone Callback</button>
+          <a href="/?view=contact" target="_blank" class="btn btn-secondary btn-sm">Preview Contact Section ↗</a>
+        </div>
       </div>
 
       <div class="table-responsive-card">
@@ -970,14 +1100,31 @@
           <label class="form-label">Category:</label>
           <input type="text" id="veh_category" class="form-control" placeholder="e.g. Luxury SUV / Executive Sedan" required>
         </div>
+
+        <!-- Vehicle Image Upload with Firebase Storage -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Vehicle Photo / Image (Stored in Firebase Cloud):</label>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="file" id="veh_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
+            <div id="veh_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
+              <img id="veh_image_preview" src="" alt="Vehicle Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+              <div style="flex:1;">
+                <div id="veh_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
+                <div style="font-size:0.72rem; color:var(--color-text-muted);">Bucket: yakshithnandhtravels.firebasestorage.app</div>
+              </div>
+            </div>
+            <input type="text" id="veh_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+        </div>
+
         <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group">
-            <label class="form-label">Seats:</label>
-            <input type="number" id="veh_capacity" class="form-control" min="1" max="15" value="7" required>
+            <label class="form-label">Seats (Seating Capacity):</label>
+            <input type="text" id="veh_capacity" class="form-control" placeholder="e.g. 7 Seater / 4-7 Seats / 4+1" required>
           </div>
           <div class="form-group">
             <label class="form-label">Luggage Bags:</label>
-            <input type="number" id="veh_luggage" class="form-control" min="1" max="10" value="4" required>
+            <input type="text" id="veh_luggage" class="form-control" placeholder="e.g. 4 Bags / 3-4 Suitcases" required>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
@@ -990,7 +1137,104 @@
         </div>
         <div style="display:flex; justify-content:flex-end; gap:10px;">
           <button type="button" class="btn btn-secondary btn-sm" onclick="closeVehicleModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm">Save Vehicle</button>
+          <button type="submit" id="saveVehicleSubmitBtn" class="btn btn-primary btn-sm">Save Vehicle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Destination Add / Edit Modal -->
+  <div id="destinationModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="destModalTitle">Destination Details</h3>
+        <button type="button" class="modal-close-btn" onclick="closeDestinationModal()">&times;</button>
+      </div>
+      <form id="destinationForm">
+        <input type="hidden" id="destId">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Destination Name:</label>
+          <input type="text" id="dest_name" class="form-control" placeholder="e.g. Tirumala / Sri Kalahasti" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Spiritual / Heritage Subtitle:</label>
+          <input type="text" id="dest_subtitle" class="form-control" placeholder="e.g. Abode of Lord Sri Venkateswara" required>
+        </div>
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Distance from Tirupati:</label>
+            <input type="text" id="dest_distance" class="form-control" placeholder="e.g. 22 km" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estimated Travel Duration:</label>
+            <input type="text" id="dest_duration" class="form-control" placeholder="e.g. ~45 mins" required>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Description & Itinerary Highlights:</label>
+          <textarea id="dest_desc" class="form-control" placeholder="Describe the sacred significance, darshan route, and ghat road details..." required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeDestinationModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Destination</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. Record Customer Callback / Inquiry Modal -->
+  <div id="newCallbackModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>+ Record Phone Callback / Inquiry</h3>
+        <button type="button" class="modal-close-btn" onclick="closeNewCallbackModal()">&times;</button>
+      </div>
+      <form id="newCallbackForm">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Customer Name:</label>
+          <input type="text" id="cb_name" class="form-control" placeholder="e.g. Padmavathi Devi" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Phone Number:</label>
+          <input type="tel" id="cb_phone" class="form-control" placeholder="10-digit number" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Email (Optional):</label>
+          <input type="email" id="cb_email" class="form-control" placeholder="customer@example.com">
+        </div>
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Inquiry / Travel Query:</label>
+          <textarea id="cb_message" class="form-control" placeholder="Details of their tour requirement, flight timing, or custom quotation..." required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeNewCallbackModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Inquiry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. Message Status Modal -->
+  <div id="messageStatusModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Update Inquiry Status</h3>
+        <button type="button" class="modal-close-btn" onclick="closeMessageStatusModal()">&times;</button>
+      </div>
+      <form id="messageStatusForm">
+        <input type="hidden" id="msgStatusId">
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Status:</label>
+          <select id="msgNewStatusSelect" class="form-control" required>
+            <option value="New">New (Unread)</option>
+            <option value="In Progress">In Progress (Reviewing)</option>
+            <option value="Contacted">Contacted (Called / Messaged)</option>
+            <option value="Resolved">Resolved / Converted to Booking</option>
+          </select>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeMessageStatusModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Update Status</button>
         </div>
       </form>
     </div>
@@ -1000,6 +1244,6 @@
     &copy; 2026 Yakshith Nandh Travels • Tirupati Master Dispatch Console • Helplines: +91 88868 30755 / +91 97009 35888
   </footer>
 
-  <script src="admin.js"></script>
+  <script type="module" src="admin.js?v=1793785000000"></script>
 </body>
 </html>

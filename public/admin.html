@@ -5,7 +5,8 @@
     (function() {
       var token = localStorage.getItem('ynt_admin_token') || sessionStorage.getItem('ynt_admin_token');
       if (!token) {
-        window.location.replace('/login');
+        var isSub = window.location.pathname.indexOf('/admin/') !== -1;
+        window.location.replace(isSub ? '../login.html' : 'login.html');
       }
     })();
   </script>
@@ -658,13 +659,13 @@
       <div class="sections-bar-content">
         <span style="font-weight:700; color:var(--color-primary);">Quick Website Section Preview:</span>
         <div class="sections-jump-links">
-          <a href="/#home" target="_blank" class="jump-pill">🏠 Hero & Slogan</a>
-          <a href="/#services" target="_blank" class="jump-pill">🛠️ Services (4)</a>
-          <a href="/#vehicles" target="_blank" class="jump-pill">🚗 Our Vehicles</a>
-          <a href="/#destinations" target="_blank" class="jump-pill">🏛️ Sacred Destinations</a>
-          <a href="/#why-choose-us" target="_blank" class="jump-pill">⭐ Trust Pillars</a>
-          <a href="/#booking" target="_blank" class="jump-pill">📝 Booking Form</a>
-          <a href="/#contact" target="_blank" class="jump-pill">📞 Contact & Helplines</a>
+          <a href="/?view=home" target="_blank" class="jump-pill">🏠 Hero & Slogan</a>
+          <a href="/?view=services" target="_blank" class="jump-pill">🛠️ Services (4)</a>
+          <a href="/?view=vehicles" target="_blank" class="jump-pill">🚗 Our Vehicles</a>
+          <a href="/?view=destinations" target="_blank" class="jump-pill">🏛️ Sacred Destinations</a>
+          <a href="/?view=why-choose-us" target="_blank" class="jump-pill">⭐ Trust Pillars</a>
+          <a href="/?view=booking" target="_blank" class="jump-pill">📝 Booking Form</a>
+          <a href="/?view=contact" target="_blank" class="jump-pill">📞 Contact & Helplines</a>
         </div>
       </div>
     </div>
@@ -788,7 +789,7 @@
         </div>
         <div style="display:flex; gap:10px;">
           <button type="button" class="btn btn-primary btn-sm" onclick="openAddServiceModal()">+ Add New Service</button>
-          <a href="/#services" target="_blank" class="btn btn-secondary btn-sm">Preview on Live Website ↗</a>
+          <a href="/?view=services" target="_blank" class="btn btn-secondary btn-sm">Preview on Live Website ↗</a>
         </div>
       </div>
 
@@ -808,7 +809,7 @@
         </div>
         <div style="display:flex; gap:10px;">
           <button type="button" class="btn btn-primary btn-sm" onclick="openAddVehicleModal()">+ Add New Vehicle</button>
-          <a href="/#vehicles" target="_blank" class="btn btn-secondary btn-sm">Preview Vehicles ↗</a>
+          <a href="/?view=vehicles" target="_blank" class="btn btn-secondary btn-sm">Preview Vehicles ↗</a>
         </div>
       </div>
 
@@ -828,7 +829,7 @@
         </div>
         <div style="display:flex; gap:10px;">
           <button type="button" class="btn btn-primary btn-sm" onclick="openAddDestinationModal()">+ Add New Destination</button>
-          <a href="/#destinations" target="_blank" class="btn btn-secondary btn-sm">Preview Destinations ↗</a>
+          <a href="/?view=destinations" target="_blank" class="btn btn-secondary btn-sm">Preview Destinations ↗</a>
         </div>
       </div>
 
@@ -848,7 +849,7 @@
         </div>
         <div style="display:flex; gap:10px;">
           <button type="button" class="btn btn-primary btn-sm" onclick="openNewCallbackModal()">+ Record Phone Callback</button>
-          <a href="/#contact" target="_blank" class="btn btn-secondary btn-sm">Preview Contact Section ↗</a>
+          <a href="/?view=contact" target="_blank" class="btn btn-secondary btn-sm">Preview Contact Section ↗</a>
         </div>
       </div>
 
@@ -1099,14 +1100,31 @@
           <label class="form-label">Category:</label>
           <input type="text" id="veh_category" class="form-control" placeholder="e.g. Luxury SUV / Executive Sedan" required>
         </div>
+
+        <!-- Vehicle Image Upload with Firebase Storage -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Vehicle Photo / Image (Stored in Firebase Cloud):</label>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="file" id="veh_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
+            <div id="veh_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
+              <img id="veh_image_preview" src="" alt="Vehicle Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+              <div style="flex:1;">
+                <div id="veh_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
+                <div style="font-size:0.72rem; color:var(--color-text-muted);">Bucket: yakshithnandhtravels.firebasestorage.app</div>
+              </div>
+            </div>
+            <input type="text" id="veh_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+        </div>
+
         <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group">
-            <label class="form-label">Seats:</label>
-            <input type="number" id="veh_capacity" class="form-control" min="1" max="15" value="7" required>
+            <label class="form-label">Seats (Seating Capacity):</label>
+            <input type="text" id="veh_capacity" class="form-control" placeholder="e.g. 7 Seater / 4-7 Seats / 4+1" required>
           </div>
           <div class="form-group">
             <label class="form-label">Luggage Bags:</label>
-            <input type="number" id="veh_luggage" class="form-control" min="1" max="10" value="4" required>
+            <input type="text" id="veh_luggage" class="form-control" placeholder="e.g. 4 Bags / 3-4 Suitcases" required>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
@@ -1119,7 +1137,7 @@
         </div>
         <div style="display:flex; justify-content:flex-end; gap:10px;">
           <button type="button" class="btn btn-secondary btn-sm" onclick="closeVehicleModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm">Save Vehicle</button>
+          <button type="submit" id="saveVehicleSubmitBtn" class="btn btn-primary btn-sm">Save Vehicle</button>
         </div>
       </form>
     </div>
@@ -1226,6 +1244,6 @@
     &copy; 2026 Yakshith Nandh Travels • Tirupati Master Dispatch Console • Helplines: +91 88868 30755 / +91 97009 35888
   </footer>
 
-  <script src="admin.js?v=1793774095820"></script>
+  <script type="module" src="admin.js?v=1793785000000"></script>
 </body>
 </html>

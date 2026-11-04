@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1. Auto-redirect if already logged in with Firebase
   const existingToken = localStorage.getItem('ynt_admin_token') || sessionStorage.getItem('ynt_admin_token');
   if (existingToken) {
-    window.location.replace('/admin');
+    window.location.replace('admin.html');
     return;
   }
 
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         saveSession(token, adminUser, rememberMe.checked);
-        window.location.replace('/admin');
+        window.location.replace('admin.html');
       } catch (err) {
         console.error('Firebase Auth Error:', err.code, err.message);
 

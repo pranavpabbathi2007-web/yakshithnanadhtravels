@@ -67,13 +67,19 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       model_name TEXT NOT NULL,
       category TEXT NOT NULL,
-      capacity INTEGER NOT NULL,
-      luggage_bags INTEGER NOT NULL,
+      capacity TEXT NOT NULL,
+      luggage_bags TEXT NOT NULL,
       is_available INTEGER DEFAULT 1,
       description TEXT,
-      rate_per_km TEXT
+      rate_per_km TEXT,
+      image_url TEXT
     );
   `);
+  try {
+    db.exec(`ALTER TABLE fleet ADD COLUMN image_url TEXT;`);
+  } catch (e) {
+    // column already exists
+  }
 
   // 4. Destinations Section Table
   db.exec(`
@@ -511,16 +517,17 @@ function getFleet() {
 
 function addFleetVehicle(data) {
   const info = db.prepare(`
-    INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km, image_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.model_name,
     data.category || 'Standard',
-    parseInt(data.capacity, 10) || 4,
-    parseInt(data.luggage_bags, 10) || 3,
+    String(data.capacity || '4 Seater'),
+    String(data.luggage_bags || '3 Bags'),
     data.is_available !== undefined ? (data.is_available ? 1 : 0) : 1,
     data.description || '',
-    data.rate_per_km || ''
+    data.rate_per_km || '',
+    data.image_url || ''
   );
   return db.prepare('SELECT * FROM fleet WHERE id = ?').get(info.lastInsertRowid);
 }
@@ -528,16 +535,17 @@ function addFleetVehicle(data) {
 function updateFleetVehicle(id, data) {
   db.prepare(`
     UPDATE fleet
-    SET model_name = ?, category = ?, capacity = ?, luggage_bags = ?, is_available = ?, description = ?, rate_per_km = ?
+    SET model_name = ?, category = ?, capacity = ?, luggage_bags = ?, is_available = ?, description = ?, rate_per_km = ?, image_url = ?
     WHERE id = ?
   `).run(
     data.model_name,
     data.category,
-    parseInt(data.capacity, 10),
-    parseInt(data.luggage_bags, 10),
+    String(data.capacity || '4 Seater'),
+    String(data.luggage_bags || '3 Bags'),
     data.is_available ? 1 : 0,
     data.description,
     data.rate_per_km,
+    data.image_url || '',
     id
   );
   return db.prepare('SELECT * FROM fleet WHERE id = ?').get(id);

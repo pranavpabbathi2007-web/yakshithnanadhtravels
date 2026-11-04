@@ -106,7 +106,49 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 6. Smooth Scroll for all internal anchor links with header offset
+  // 6. Clean URL Navigation (Removes '#' symbol completely from page URL)
+  const cleanHashFromUrl = () => {
+    if (window.location.hash) {
+      const targetElement = document.querySelector(window.location.hash);
+      if (targetElement) {
+        setTimeout(() => {
+          const headerHeight = header ? (header.offsetHeight || 75) : 75;
+          const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+          window.scrollTo({
+            top: targetPosition,
+            behavior: 'smooth'
+          });
+        }, 120);
+      }
+      try {
+        history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      } catch (e) {}
+    }
+  };
+
+  cleanHashFromUrl();
+  window.addEventListener('hashchange', cleanHashFromUrl);
+
+  // Clean URL query section view (e.g. ?view=vehicles, ?view=services)
+  const urlViewParam = new URLSearchParams(window.location.search).get('view');
+  if (urlViewParam) {
+    const targetElement = document.getElementById(urlViewParam);
+    if (targetElement) {
+      setTimeout(() => {
+        const headerHeight = header ? (header.offsetHeight || 75) : 75;
+        const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+        window.scrollTo({
+          top: targetPosition,
+          behavior: 'smooth'
+        });
+      }, 150);
+    }
+    try {
+      history.replaceState(null, document.title, window.location.pathname);
+    } catch (e) {}
+  }
+
+  // Smooth Scroll for all internal anchor links (Strips '#' from URL)
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
       const targetId = this.getAttribute('href');
@@ -115,13 +157,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetElement = document.querySelector(targetId);
       if (targetElement) {
         e.preventDefault();
-        const headerHeight = header.offsetHeight || 75;
+        const headerHeight = header ? (header.offsetHeight || 75) : 75;
         const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
         
         window.scrollTo({
           top: targetPosition,
           behavior: 'smooth'
         });
+
+        // Strip '#' from address bar immediately
+        try {
+          history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        } catch (err) {}
       }
     });
   });
@@ -468,115 +515,12 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           }
         });
       }
-
-      // Sync Destinations Data
-      const destRes = await fetch('/api/destinations');
-      if (destRes.ok) {
-        const dData = await destRes.json();
-        const destinations = dData.destinations || [];
-        const destCards = document.querySelectorAll('.destination-card');
-        destinations.forEach((d, idx) => {
-          if (destCards[idx]) {
-            const titleEl = destCards[idx].querySelector('.destination-title');
-            const subEl = destCards[idx].querySelector('.destination-subtitle');
-            const descEl = destCards[idx].querySelector('.destination-desc');
-            const distEl = destCards[idx].querySelector('.destination-dist span');
-            if (titleEl && d.name) titleEl.textContent = d.name;
-            if (subEl && d.subtitle) subEl.textContent = d.subtitle;
-            if (descEl && d.description) descEl.textContent = d.description;
-            if (distEl && d.distance) distEl.textContent = `${d.distance} • ${d.duration || ''}`;
-          }
-        });
-      }
     } catch (e) {
       // Graceful offline fallback
     }
   };
 
   syncLiveWebpageData();
-
-  // 12. Public Contact / Callback Inquiry Form Submission
-  const publicContactForm = document.getElementById('publicContactForm');
-  const contactToast = document.getElementById('contactToast');
-
-  if (publicContactForm) {
-    publicContactForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const nameInput = document.getElementById('contact_name');
-      const phoneInput = document.getElementById('contact_phone');
-      const emailInput = document.getElementById('contact_email');
-      const tripInput = document.getElementById('contact_trip');
-      const messageInput = document.getElementById('contact_message');
-
-      let isValid = true;
-      if (!nameInput.value.trim() || nameInput.value.trim().length < 2) {
-        nameInput.classList.add('is-invalid');
-        isValid = false;
-      }
-      const cleanedPhone = phoneInput.value.replace(/\D/g, '');
-      if (cleanedPhone.length < 10) {
-        phoneInput.classList.add('is-invalid');
-        isValid = false;
-      }
-      if (!messageInput.value.trim()) {
-        messageInput.classList.add('is-invalid');
-        isValid = false;
-      }
-
-      if (!isValid) return;
-
-      const payload = {
-        name: nameInput.value.trim(),
-        phone: phoneInput.value.trim(),
-        email: emailInput.value.trim(),
-        message: (tripInput.value.trim() ? `[Trip: ${tripInput.value.trim()}] ` : '') + messageInput.value.trim()
-      };
-
-      const submitBtn = publicContactForm.querySelector('button[type="submit"]');
-      const origText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = 'Sending Callback Request...';
-
-      try {
-        const res = await fetch('/api/contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const waText = encodeURIComponent(
-          `Namaste Yakshith Nandh Travels! My name is ${payload.name} (${payload.phone}). I would like to enquire about: ${payload.message}`
-        );
-        const waUrl = `https://api.whatsapp.com/send?phone=918886830755&text=${waText}`;
-
-        if (contactToast) {
-          contactToast.innerHTML = `
-            <div style="background:#FFF9F0; border:2px solid var(--color-accent-gold); border-radius:12px; padding:18px; color:var(--color-text-main);">
-              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-                <svg style="width:24px;height:24px;fill:#2E7D32;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                <strong style="color:var(--color-primary); font-size:1.1rem;">Callback Request Received!</strong>
-              </div>
-              <p style="font-size:0.92rem; margin-bottom:12px;">Thank you <strong>${payload.name}</strong>! Your inquiry has been registered in our Tirupati dispatch queue. Our team is contacting you shortly.</p>
-              <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="background:#25D366; border-color:#25D366; color:#FFF;">Open Instant WhatsApp Chat</a>
-                <a href="tel:+918886830755" class="btn btn-secondary btn-sm">Call Helpline Now</a>
-              </div>
-            </div>
-          `;
-          contactToast.classList.add('show');
-          contactToast.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-
-        publicContactForm.reset();
-      } catch (err) {
-        console.error('Contact submit error:', err);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = origText;
-      }
-    });
-  }
 
   // 12. Admin Live Access Mode & Direct Section Controls
   const checkAdminAccess = () => {
@@ -607,11 +551,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           <span>You have full administrative control over this webpage's data</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <a href="/admin#bookings" target="_blank" class="btn btn-sm" style="background:#FFF9F0; color:#7B263A; padding:4px 10px; font-size:0.76rem; font-weight:bold;">Dispatch Console</a>
-          <a href="/admin#services" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Services</a>
-          <a href="/admin#fleet" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Fleet</a>
-          <a href="/admin#destinations" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Destinations</a>
-          <a href="/admin#settings" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Settings</a>
+          <a href="/admin.html?view=bookings" target="_blank" class="btn btn-sm" style="background:#FFF9F0; color:#7B263A; padding:4px 10px; font-size:0.76rem; font-weight:bold;">Dispatch Console</a>
+          <a href="/admin.html?view=services" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Services</a>
+          <a href="/admin.html?view=fleet" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Fleet</a>
+          <a href="/admin.html?view=destinations" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Destinations</a>
+          <a href="/admin.html?view=settings" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Settings</a>
           <button id="exitAdminBtn" style="background:transparent; border:1px solid #C49A52; color:#FFF; font-size:0.75rem; padding:4px 8px; border-radius:4px; cursor:pointer;">Exit</button>
         </div>
       </div>
@@ -626,11 +570,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
 
   const injectSectionEditButtons = () => {
     const sectionMappings = [
-      { id: 'services', hash: 'services', label: 'Edit Services' },
-      { id: 'vehicles', hash: 'fleet', label: 'Edit Vehicles' },
-      { id: 'destinations', hash: 'destinations', label: 'Edit Destinations' },
-      { id: 'booking', hash: 'bookings', label: 'Manage Bookings' },
-      { id: 'contact', hash: 'messages', label: 'View Inquiries' }
+      { id: 'services', view: 'services', label: 'Edit Services' },
+      { id: 'vehicles', view: 'fleet', label: 'Edit Vehicles' },
+      { id: 'destinations', view: 'destinations', label: 'Edit Destinations' },
+      { id: 'booking', view: 'bookings', label: 'Manage Bookings' },
+      { id: 'contact', view: 'messages', label: 'View Inquiries' }
     ];
 
     sectionMappings.forEach(m => {
@@ -639,7 +583,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         const header = section.querySelector('.section-header');
         if (header && !header.querySelector('.admin-section-edit-btn')) {
           const editBtn = document.createElement('a');
-          editBtn.href = `/admin#${m.hash}`;
+          editBtn.href = `/admin.html?view=${m.view}`;
           editBtn.target = '_blank';
           editBtn.className = 'admin-section-edit-btn';
           editBtn.style.cssText = 'display:inline-flex; align-items:center; gap:5px; background:#7B263A; color:#FFF9F0; border:1px solid #C49A52; padding:3px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; text-decoration:none; margin-top:8px; box-shadow:0 2px 6px rgba(0,0,0,0.15);';
@@ -650,5 +594,74 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     });
   };
 
+  // Dynamic Fleet Loader (Loads custom vehicle additions from API or LocalStorage)
+  const loadWebsiteFleet = async () => {
+    const grid = document.querySelector('.vehicles-grid');
+    if (!grid) return;
+
+    let fleet = null;
+    try {
+      const res = await fetch('/api/fleet');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.fleet && data.fleet.length > 0) fleet = data.fleet;
+      }
+    } catch (e) {}
+
+    if (!fleet) {
+      try {
+        const stored = localStorage.getItem('ynt_fleet');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) fleet = parsed;
+        }
+      } catch (e) {}
+    }
+
+    if (!fleet || fleet.length === 0) return;
+
+    const defaultImg = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80';
+    grid.innerHTML = fleet.map((v, idx) => {
+      const imgUrl = v.image_url || defaultImg;
+      return `
+        <div class="vehicle-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+          <div class="vehicle-image-wrapper">
+            <img src="${imgUrl}" alt="${v.model_name} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.src='${defaultImg}'">
+            <div class="vehicle-badge-overlay">${v.category || 'Special Fleet'}</div>
+            <div class="vehicle-specs-overlay">${v.capacity || '4 Seater'} • ${v.luggage_bags || '3 Bags'}</div>
+          </div>
+          <div class="vehicle-details">
+            <h3 class="vehicle-name">${v.model_name}</h3>
+            <div class="vehicle-tagline">${v.rate_per_km ? 'Tariff: ' + v.rate_per_km : 'Supreme Comfort & Ghat Mastery'}</div>
+            <p class="vehicle-desc">${v.description || 'Maintained to pristine standards, fully air-conditioned, and equipped with modern safety features for quiet, relaxed travel.'}</p>
+            <div class="vehicle-specs-row">
+              <div class="spec-item">
+                <strong>${v.capacity || 'Seating'}</strong>
+                <span>Spacious Seating</span>
+              </div>
+              <div class="spec-item">
+                <strong>AC Cabin</strong>
+                <span>Climate Control</span>
+              </div>
+              <div class="spec-item">
+                <strong>${v.luggage_bags || 'Luggage'}</strong>
+                <span>Boot Space</span>
+              </div>
+            </div>
+            <div class="vehicle-action-footer">
+              <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${(v.model_name || '').replace(/'/g, "\\'")}')">
+                <span>Enquire Now</span>
+                <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
+                  <path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42L16.86 11H5v2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  loadWebsiteFleet();
   checkAdminAccess();
 });
