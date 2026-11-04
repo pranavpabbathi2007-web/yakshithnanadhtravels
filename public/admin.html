@@ -501,6 +501,105 @@
       font-size: 1.4rem;
       color: var(--color-text-muted);
     }
+
+    /* Mobile & Tablet Responsiveness for All Devices */
+    @media (max-width: 768px) {
+      .admin-top-nav {
+        padding: 10px 0;
+      }
+      .admin-nav-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .admin-brand {
+        gap: 10px;
+      }
+      .admin-crest {
+        width: 36px;
+        height: 36px;
+        font-size: 0.95rem;
+      }
+      .admin-title-box h1 {
+        font-size: 1.05rem;
+      }
+      .admin-title-box span {
+        font-size: 0.7rem;
+      }
+      .admin-main-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+        margin: 1rem 0 0.8rem;
+        scrollbar-width: thin;
+      }
+      .admin-tab-btn {
+        flex: 0 0 auto;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+      .section-control-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 10px;
+      }
+      .search-box {
+        min-width: 100%;
+        width: 100%;
+      }
+      .filter-tabs {
+        display: flex;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+        scrollbar-width: thin;
+      }
+      .filter-tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .kpi-card {
+        padding: 0.9rem;
+      }
+      .kpi-value {
+        font-size: 1.6rem;
+      }
+      .modal-backdrop {
+        padding: 10px;
+      }
+      .modal-box {
+        padding: 1.2rem;
+        max-height: 95vh;
+        width: 100%;
+      }
+      .table-responsive-card {
+        margin-bottom: 1.5rem;
+        -webkit-overflow-scrolling: touch;
+      }
+      .admin-table th, .admin-table td {
+        padding: 10px 8px;
+        font-size: 0.82rem;
+      }
+      .action-btn-group {
+        gap: 4px;
+      }
+      .action-icon-btn {
+        width: 32px;
+        height: 32px;
+      }
+      .cards-grid-admin {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body class="admin-body">

@@ -1,3 +1,4 @@
+const os = require('node:os');
 /**
  * YAKSHITH NANDH TRAVELS - Full-Stack Application Server
  * Location: Tirupati, Andhra Pradesh, India
@@ -522,14 +523,28 @@ const server = http.createServer(async (req, res) => {
 
 // Start Server
 if (require.main === module) {
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
+    const interfaces = os.networkInterfaces();
+    let networkIp = 'localhost';
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          networkIp = iface.address;
+          break;
+        }
+      }
+    }
     console.log(`==================================================================`);
     console.log(`  YAKSHITH NANDH TRAVELS - FULL-STACK PLATFORM RUNNING`);
     console.log(`  Location: Tirupati, Andhra Pradesh, India`);
-    console.log(`  Customer Site: http://localhost:${PORT}`);
-    console.log(`  Admin Console: http://localhost:${PORT}/admin`);
-    console.log(`  API Health:    http://localhost:${PORT}/health`);
-    console.log(`  Helplines:     +91 88868 30755 / +91 97009 35888`);
+    console.log(`  Local Device (This PC):`);
+    console.log(`    Customer: http://localhost:${PORT}`);
+    console.log(`    Admin:    http://localhost:${PORT}/admin`);
+    console.log(`  Other Devices (Same Wi-Fi):`);
+    console.log(`    Customer: http://${networkIp}:${PORT}`);
+    console.log(`    Admin:    http://${networkIp}:${PORT}/admin`);
+    console.log(`  API Health: http://${networkIp}:${PORT}/health`);
+    console.log(`  Helplines:  +91 88868 30755 / +91 97009 35888`);
     console.log(`==================================================================`);
   });
 }
