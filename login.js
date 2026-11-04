@@ -1,7 +1,12 @@
 /**
- * YAKSHITH NANDH TRAVELS - Admin Login Authentication
- * Supports full-stack Node.js SQLite API + seamless static/offline fallback
+ * YAKSHITH NANDH TRAVELS - Strict Firebase Admin Authentication
+ * Authenticates directly with Firebase Authentication (Project: yakshithnandhtravels)
  */
+
+import { auth } from './firebase-config.js';
+import {
+  signInWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('adminLoginForm');
@@ -13,10 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const alertBox = document.getElementById('loginAlert');
   const alertText = document.getElementById('loginAlertText');
 
-  // 1. Auto-redirect if already authenticated
+  // 1. Auto-redirect if already logged in with Firebase
   const existingToken = localStorage.getItem('ynt_admin_token') || sessionStorage.getItem('ynt_admin_token');
   if (existingToken) {
-    // Check if token is valid or recent
     window.location.replace('/admin');
     return;
   }
@@ -30,15 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 3. Show error helper
+  // 3. Error helpers
   const showError = (message) => {
-    alertText.textContent = message || 'Invalid email or password.';
+    alertText.textContent = message || 'Authentication failed. Please verify credentials.';
     alertBox.classList.add('visible');
     passwordInput.value = '';
     passwordInput.focus();
-    // re-trigger shake animation
     alertBox.style.animation = 'none';
-    alertBox.offsetHeight; // trigger reflow
+    alertBox.offsetHeight;
     alertBox.style.animation = 'shake 0.3s ease';
   };
 
@@ -49,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   emailInput.addEventListener('input', hideError);
   passwordInput.addEventListener('input', hideError);
 
-  // 4. Form submission
+  // 4. Form submission: Strict Firebase Auth
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -59,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const password = passwordInput.value;
 
       if (!email || !password) {
-        showError('Please enter both email and password.');
+        showError('Please enter your email and password.');
         return;
       }
 
@@ -67,38 +70,59 @@ document.addEventListener('DOMContentLoaded', () => {
       const originalBtnHTML = submitBtn.innerHTML;
       submitBtn.disabled = true;
       submitBtn.innerHTML = `
-        <svg style="animation:spin 1s linear infinite; width:18px;height:18px;fill:currentColor" viewBox="0 0 24 24">
-          <path d="M12 4V2C6.48 2 2 6.48 2 12h2c0-4.41 3.59-8 8-8zm0 16c4.41 0 8-3.59 8-8h2c0 5.52-4.48 10-10 10v-2z"/>
-        </svg>
-        <span>Verifying...</span>
+        <span style="display:inline-flex; align-items:center; gap:8px;">
+          <svg style="animation:spin 1s linear infinite; width:18px;height:18px;fill:currentColor" viewBox="0 0 24 24">
+            <path d="M12 4V2C6.48 2 2 6.48 2 12h2c0-4.41 3.59-8 8-8zm0 16c4.41 0 8-3.59 8-8h2c0 5.52-4.48 10-10 10v-2z"/>
+          </svg>
+          <span>Verifying with Firebase...</span>
+        </span>
       `;
 
       try {
-        // Try backend API authentication
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
+        // Direct Firebase Authentication
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        const token = await user.getIdToken();
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.token) {
-            saveSession(data.token, data.user, rememberMe.checked);
-            window.location.replace('/admin');
-            return;
-          }
-        } else if (res.status === 401) {
-          const errData = await res.json();
-          showError(errData.error || 'Invalid email or password.');
-          return;
-        } else {
-          // Non-401 backend response -> try local fallback
-          checkLocalFallback(email, password, rememberMe.checked);
+        const adminUser = {
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || user.email.split('@')[0],
+          source: 'firebase'
+        };
+
+        saveSession(token, adminUser, rememberMe.checked);
+        window.location.replace('/admin');
+      } catch (err) {
+        console.error('Firebase Auth Error:', err.code, err.message);
+
+        let friendlyMessage = 'Authentication failed. Please check credentials.';
+        switch (err.code) {
+          case 'auth/invalid-credential':
+          case 'auth/wrong-password':
+            friendlyMessage = 'Incorrect email or password. Please verify the credentials assigned in your Firebase project.';
+            break;
+          case 'auth/user-not-found':
+            friendlyMessage = 'No user found with this email in your Firebase Authentication project.';
+            break;
+          case 'auth/user-disabled':
+            friendlyMessage = 'This admin account has been disabled in your Firebase Console.';
+            break;
+          case 'auth/invalid-email':
+            friendlyMessage = 'Please enter a valid email address.';
+            break;
+          case 'auth/too-many-requests':
+            friendlyMessage = 'Too many failed attempts. Please wait a few moments and try again.';
+            break;
+          case 'auth/operation-not-allowed':
+            friendlyMessage = 'Email/Password sign-in is not enabled in Firebase Console. Go to Firebase Console > Authentication > Sign-in method and enable Email/Password.';
+            break;
+          default:
+            friendlyMessage = err.message || 'Firebase authentication failed.';
+            break;
         }
-      } catch (networkErr) {
-        // Backend not reachable (e.g. GitHub Pages or offline) -> check local fallback
-        checkLocalFallback(email, password, rememberMe.checked);
+
+        showError(friendlyMessage);
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnHTML;
@@ -106,35 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Local fallback authentication
-  function checkLocalFallback(email, password, isRemember) {
-    const validEmails = [
-      'admin@yakshithnandhtravels.com',
-      'admin@gmail.com',
-      'admin'
-    ];
-    const validPasswords = ['admin', 'Yakshith@2026', 'admin123'];
-
-    const emailMatch = validEmails.includes(email);
-    const passwordMatch = validPasswords.includes(password);
-
-    if (emailMatch && passwordMatch) {
-      const fallbackToken = 'ynt_auth_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      const user = {
-        name: 'Master Dispatcher',
-        email: email,
-        role: 'admin'
-      };
-      saveSession(fallbackToken, user, isRemember);
-      window.location.replace('/admin');
-    } else {
-      showError('Invalid email or password. Default: admin@yakshithnandhtravels.com / admin');
-    }
-  }
-
   function saveSession(token, user, isRemember) {
     const storage = isRemember ? localStorage : sessionStorage;
     storage.setItem('ynt_admin_token', token);
-    storage.setItem('ynt_admin_user', JSON.stringify(user || { name: 'Admin', email: 'admin' }));
+    storage.setItem('ynt_admin_user', JSON.stringify(user));
   }
 });
