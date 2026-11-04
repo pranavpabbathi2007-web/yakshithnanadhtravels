@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Form: Edit Service
+  // Form: Add / Edit Service
   if (serviceEditForm) {
     serviceEditForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -213,15 +213,113 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       try {
-        const res = await fetch(`/api/services/${id}`, {
-          method: 'PATCH',
+        const url = id ? `/api/services/${id}` : '/api/services';
+        const method = id ? 'PATCH' : 'POST';
+        const res = await fetch(url, {
+          method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         if (res.ok) {
           closeServiceEditModal();
           loadServices();
-          alert('Service updated successfully!');
+          alert(id ? 'Service updated successfully!' : 'Service created successfully!');
+        } else {
+          alert('Failed to save service.');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+  }
+
+  // Form: Destination Add / Edit
+  const destinationForm = document.getElementById('destinationForm');
+  if (destinationForm) {
+    destinationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('destId').value;
+      const payload = {
+        name: document.getElementById('dest_name').value.trim(),
+        subtitle: document.getElementById('dest_subtitle').value.trim(),
+        distance: document.getElementById('dest_distance').value.trim(),
+        duration: document.getElementById('dest_duration').value.trim(),
+        description: document.getElementById('dest_desc').value.trim(),
+        is_popular: 1
+      };
+
+      try {
+        const url = id ? `/api/destinations/${id}` : '/api/destinations';
+        const method = id ? 'PATCH' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          closeDestinationModal();
+          loadDestinations();
+          alert(id ? 'Destination updated successfully!' : 'Destination added successfully!');
+        } else {
+          alert('Failed to save destination.');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+  }
+
+  // Form: Record Manual Callback / Inquiry
+  const newCallbackForm = document.getElementById('newCallbackForm');
+  if (newCallbackForm) {
+    newCallbackForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('cb_name').value.trim(),
+        phone: document.getElementById('cb_phone').value.trim(),
+        email: document.getElementById('cb_email').value.trim(),
+        message: document.getElementById('cb_message').value.trim()
+      };
+
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          closeNewCallbackModal();
+          newCallbackForm.reset();
+          loadMessages();
+          alert('Callback inquiry logged successfully!');
+        } else {
+          alert('Failed to save inquiry.');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+  }
+
+  // Form: Message Status Update
+  const messageStatusForm = document.getElementById('messageStatusForm');
+  if (messageStatusForm) {
+    messageStatusForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('msgStatusId').value;
+      const status = document.getElementById('msgNewStatusSelect').value;
+
+      try {
+        const res = await fetch(`/api/contacts/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+          closeMessageStatusModal();
+          loadMessages();
+        } else {
+          alert('Failed to update status.');
         }
       } catch (err) {
         alert('Error: ' + err.message);
@@ -447,8 +545,13 @@ async function loadServices() {
         </div>
         ${s.features ? `<div style="font-size:0.78rem; color:var(--color-text-muted); margin-bottom:14px; background:#FFF9F0; padding:6px 10px; border-radius:6px; border:1px solid var(--color-border);">${escapeHTML(s.features)}</div>` : ''}
         <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:0.78rem; color:#2E7D32; font-weight:700;">● Active on Website</span>
           <button type="button" class="btn btn-secondary btn-sm" onclick="openEditServiceModal(${s.id})">Edit Service</button>
+          <div class="action-btn-group">
+            <a href="/#services" target="_blank" class="action-icon-btn" title="Preview on Live Site">↗</a>
+            <button type="button" class="action-icon-btn delete" title="Delete Service" onclick="deleteServiceRecord(${s.id})">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     `).join('');
@@ -480,9 +583,12 @@ async function loadFleet() {
         </div>
         <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
           <button type="button" class="btn btn-secondary btn-sm" onclick="openEditVehicleModal(${v.id})">Edit</button>
-          <button type="button" class="action-icon-btn delete" title="Delete vehicle" onclick="deleteVehicleRecord(${v.id})">
-            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </button>
+          <div class="action-btn-group">
+            <a href="/#vehicles" target="_blank" class="action-icon-btn" title="Preview on Live Site">↗</a>
+            <button type="button" class="action-icon-btn delete" title="Delete vehicle" onclick="deleteVehicleRecord(${v.id})">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     `).join('');
@@ -514,8 +620,13 @@ async function loadDestinations() {
           📍 <strong>${escapeHTML(d.distance)}</strong> • ⏱️ ${escapeHTML(d.duration)}
         </div>
         <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:0.78rem; color:#2E7D32; font-weight:700;">● Visible on Live Site</span>
-          <a href="/#destinations" target="_blank" class="btn btn-secondary btn-sm">Preview ↗</a>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openEditDestinationModal(${d.id})">Edit Destination</button>
+          <div class="action-btn-group">
+            <a href="/#destinations" target="_blank" class="action-icon-btn" title="Preview on Live Site">↗</a>
+            <button type="button" class="action-icon-btn delete" title="Delete Destination" onclick="deleteDestinationRecord(${d.id})">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     `).join('');
@@ -553,16 +664,22 @@ async function loadMessages() {
         </td>
         <td><div style="font-size:0.88rem; max-width:340px;">${escapeHTML(c.message)}</div></td>
         <td>
-          <span class="badge-status ${c.status === 'New' ? 'badge-pending' : 'badge-confirmed'}">${c.status}</span>
+          <span class="badge-status ${c.status === 'New' ? 'badge-pending' : (c.status === 'Resolved' ? 'badge-completed' : 'badge-confirmed')}">${c.status}</span>
         </td>
         <td>
           <div class="action-btn-group">
-            <a href="https://wa.me/91${c.phone.replace(/\D/g,'').slice(-10)}" target="_blank" class="action-icon-btn whatsapp" title="Chat on WhatsApp">
+            <a href="https://wa.me/91${c.phone.replace(/\D/g,'').slice(-10)}?text=${encodeURIComponent('Namaste ' + c.name + '! This is Yakshith Nandh Travels, Tirupati regarding your inquiry.')}" target="_blank" class="action-icon-btn whatsapp" title="Reply on WhatsApp">
               <svg viewBox="0 0 24 24"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2z"/></svg>
             </a>
             <a href="tel:${c.phone}" class="action-icon-btn" title="Call Customer">
               <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
             </a>
+            <button type="button" class="action-icon-btn" title="Update Status" onclick="openMessageStatusModal(${c.id}, '${c.status}')">
+              <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+            <button type="button" class="action-icon-btn delete" title="Delete Inquiry" onclick="deleteMessageRecord(${c.id})">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
           </div>
         </td>
       </tr>
@@ -619,6 +736,12 @@ window.openNewBookingModal = () => {
 };
 window.closeNewBookingModal = () => document.getElementById('newBookingModal').classList.remove('open');
 
+window.openAddServiceModal = () => {
+  document.getElementById('editServiceId').value = '';
+  document.getElementById('serviceEditForm').reset();
+  document.getElementById('serviceEditModal').classList.add('open');
+};
+
 window.openEditServiceModal = (id) => {
   const service = allServicesData.find(s => s.id === id);
   if (!service) return;
@@ -630,6 +753,78 @@ window.openEditServiceModal = (id) => {
   document.getElementById('serviceEditModal').classList.add('open');
 };
 window.closeServiceEditModal = () => document.getElementById('serviceEditModal').classList.remove('open');
+
+window.deleteServiceRecord = async (id) => {
+  if (!confirm(`Delete service offering #${id}?`)) return;
+  try {
+    const res = await fetch(`/api/services/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      loadServices();
+      alert('Service deleted successfully!');
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+};
+
+window.openAddDestinationModal = () => {
+  document.getElementById('destModalTitle').textContent = 'Add New Destination';
+  document.getElementById('destId').value = '';
+  document.getElementById('destinationForm').reset();
+  document.getElementById('destinationModal').classList.add('open');
+};
+
+window.openEditDestinationModal = (id) => {
+  const dest = allDestinationsData.find(d => d.id === id);
+  if (!dest) return;
+  document.getElementById('destModalTitle').textContent = 'Edit Destination';
+  document.getElementById('destId').value = dest.id;
+  document.getElementById('dest_name').value = dest.name;
+  document.getElementById('dest_subtitle').value = dest.subtitle || '';
+  document.getElementById('dest_distance').value = dest.distance;
+  document.getElementById('dest_duration').value = dest.duration;
+  document.getElementById('dest_desc').value = dest.description;
+  document.getElementById('destinationModal').classList.add('open');
+};
+window.closeDestinationModal = () => document.getElementById('destinationModal').classList.remove('open');
+
+window.deleteDestinationRecord = async (id) => {
+  if (!confirm(`Delete destination #${id}?`)) return;
+  try {
+    const res = await fetch(`/api/destinations/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      loadDestinations();
+      alert('Destination deleted successfully!');
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+};
+
+window.openNewCallbackModal = () => {
+  document.getElementById('newCallbackForm').reset();
+  document.getElementById('newCallbackModal').classList.add('open');
+};
+window.closeNewCallbackModal = () => document.getElementById('newCallbackModal').classList.remove('open');
+
+window.openMessageStatusModal = (id, currentStatus) => {
+  document.getElementById('msgStatusId').value = id;
+  document.getElementById('msgNewStatusSelect').value = currentStatus || 'New';
+  document.getElementById('messageStatusModal').classList.add('open');
+};
+window.closeMessageStatusModal = () => document.getElementById('messageStatusModal').classList.remove('open');
+
+window.deleteMessageRecord = async (id) => {
+  if (!confirm(`Delete inquiry message #${id}?`)) return;
+  try {
+    const res = await fetch(`/api/contacts/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      loadMessages();
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+};
 
 window.openAddVehicleModal = () => {
   document.getElementById('vehicleModalTitle').textContent = 'Add New Vehicle';

@@ -664,9 +664,12 @@
       <div class="section-control-header">
         <div>
           <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Services Section Management</h2>
-          <span style="font-size:0.82rem; color:var(--color-text-muted);">Control the 4 service offerings displayed on the website</span>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Control the service offerings and rate cards displayed on the live website</span>
         </div>
-        <a href="/#services" target="_blank" class="btn btn-secondary btn-sm">Preview on Live Website ↗</a>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openAddServiceModal()">+ Add New Service</button>
+          <a href="/#services" target="_blank" class="btn btn-secondary btn-sm">Preview on Live Website ↗</a>
+        </div>
       </div>
 
       <div id="servicesCardsContainer" class="cards-grid-admin">
@@ -700,10 +703,13 @@
     <div id="destinations-view" class="admin-view-panel">
       <div class="section-control-header">
         <div>
-          <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Sacred Destinations (5)</h2>
-          <span style="font-size:0.82rem; color:var(--color-text-muted);">Manage Tirumala, Kalahasti, Chandragiri, Kanipakam & Tirupati</span>
+          <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Sacred Destinations Management</h2>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Manage Tirumala, Kalahasti, Chandragiri, Kanipakam & new tour locations</span>
         </div>
-        <a href="/#destinations" target="_blank" class="btn btn-secondary btn-sm">Preview Destinations ↗</a>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openAddDestinationModal()">+ Add New Destination</button>
+          <a href="/#destinations" target="_blank" class="btn btn-secondary btn-sm">Preview Destinations ↗</a>
+        </div>
       </div>
 
       <div id="destinationsCardsContainer" class="cards-grid-admin">
@@ -718,9 +724,12 @@
       <div class="section-control-header">
         <div>
           <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Customer Inquiries & Callbacks</h2>
-          <span style="font-size:0.82rem; color:var(--color-text-muted);">Messages received via website contact form</span>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Messages & callback requests received via website</span>
         </div>
-        <a href="/#contact" target="_blank" class="btn btn-secondary btn-sm">Preview Contact Section ↗</a>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openNewCallbackModal()">+ Record Phone Callback</button>
+          <a href="/#contact" target="_blank" class="btn btn-secondary btn-sm">Preview Contact Section ↗</a>
+        </div>
       </div>
 
       <div class="table-responsive-card">
@@ -996,10 +1005,107 @@
     </div>
   </div>
 
+  <!-- 6. Destination Add / Edit Modal -->
+  <div id="destinationModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="destModalTitle">Destination Details</h3>
+        <button type="button" class="modal-close-btn" onclick="closeDestinationModal()">&times;</button>
+      </div>
+      <form id="destinationForm">
+        <input type="hidden" id="destId">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Destination Name:</label>
+          <input type="text" id="dest_name" class="form-control" placeholder="e.g. Tirumala / Sri Kalahasti" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Spiritual / Heritage Subtitle:</label>
+          <input type="text" id="dest_subtitle" class="form-control" placeholder="e.g. Abode of Lord Sri Venkateswara" required>
+        </div>
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Distance from Tirupati:</label>
+            <input type="text" id="dest_distance" class="form-control" placeholder="e.g. 22 km" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estimated Travel Duration:</label>
+            <input type="text" id="dest_duration" class="form-control" placeholder="e.g. ~45 mins" required>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Description & Itinerary Highlights:</label>
+          <textarea id="dest_desc" class="form-control" placeholder="Describe the sacred significance, darshan route, and ghat road details..." required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeDestinationModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Destination</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. Record Customer Callback / Inquiry Modal -->
+  <div id="newCallbackModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>+ Record Phone Callback / Inquiry</h3>
+        <button type="button" class="modal-close-btn" onclick="closeNewCallbackModal()">&times;</button>
+      </div>
+      <form id="newCallbackForm">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Customer Name:</label>
+          <input type="text" id="cb_name" class="form-control" placeholder="e.g. Padmavathi Devi" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Phone Number:</label>
+          <input type="tel" id="cb_phone" class="form-control" placeholder="10-digit number" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Email (Optional):</label>
+          <input type="email" id="cb_email" class="form-control" placeholder="customer@example.com">
+        </div>
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Inquiry / Travel Query:</label>
+          <textarea id="cb_message" class="form-control" placeholder="Details of their tour requirement, flight timing, or custom quotation..." required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeNewCallbackModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Inquiry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. Message Status Modal -->
+  <div id="messageStatusModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Update Inquiry Status</h3>
+        <button type="button" class="modal-close-btn" onclick="closeMessageStatusModal()">&times;</button>
+      </div>
+      <form id="messageStatusForm">
+        <input type="hidden" id="msgStatusId">
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Status:</label>
+          <select id="msgNewStatusSelect" class="form-control" required>
+            <option value="New">New (Unread)</option>
+            <option value="In Progress">In Progress (Reviewing)</option>
+            <option value="Contacted">Contacted (Called / Messaged)</option>
+            <option value="Resolved">Resolved / Converted to Booking</option>
+          </select>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeMessageStatusModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Update Status</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <footer style="text-align:center; padding:1.5rem; font-size:0.82rem; color:var(--color-text-muted);">
     &copy; 2026 Yakshith Nandh Travels • Tirupati Master Dispatch Console • Helplines: +91 88868 30755 / +91 97009 35888
   </footer>
 
-  <script src="admin.js"></script>
+  <script src="admin.js?v=1793774095828"></script>
 </body>
 </html>

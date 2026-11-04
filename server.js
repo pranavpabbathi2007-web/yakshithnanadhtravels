@@ -133,7 +133,7 @@ function serveFileDirectly(res, targetPath) {
       'Content-Type': contentType,
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600'
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     });
     res.end(content);
   });
