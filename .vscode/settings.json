@@ -1,0 +1,15 @@
+{
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.wordWrap": "on",
+  "files.eol": "\n",
+  "files.exclude": {
+    "node_modules": true,
+    "data/*.db": false
+  },
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "liveServer.settings.port": 3000,
+  "liveServer.settings.root": "/public"
+}
