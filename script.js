@@ -4,7 +4,7 @@
  * Dispatch Hotline: +91 88868 30755 / +91 97009 35888
  */
 
-import { db, doc, onSnapshot, getDoc } from './firebase-config.js';
+import { db, doc, onSnapshot, getDoc, collection } from './firebase-config.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. DOM Elements
@@ -531,9 +531,59 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
   };
 
   let lastAppliedSnapshotHash = '';
+  let currentSiteState = {
+    settings: null,
+    services: [],
+    fleet: [],
+    destinations: [],
+    trips: []
+  };
+  let hasHydratedFromFirestore = false;
 
-  const applyWebsiteData = (data) => {
+  const applyWebsiteData = (data, source = 'unknown') => {
     if (!data || typeof data !== 'object') return;
+
+    if (source === 'firestore') {
+      hasHydratedFromFirestore = true;
+    }
+
+    // If source is API snapshot and we already have Firestore state, protect custom/Firebase images
+    if (source === 'api' && hasHydratedFromFirestore) {
+      if (Array.isArray(data.fleet) && currentSiteState.fleet.length > 0) {
+        data.fleet = data.fleet.map(apiV => {
+          const liveV = currentSiteState.fleet.find(v => String(v.id) === String(apiV.id));
+          if (liveV && liveV.image_url && !liveV.image_url.includes('unsplash.com')) {
+            return { ...apiV, image_url: liveV.image_url };
+          }
+          return apiV;
+        });
+      }
+      if (Array.isArray(data.destinations) && currentSiteState.destinations.length > 0) {
+        data.destinations = data.destinations.map(apiD => {
+          const liveD = currentSiteState.destinations.find(d => String(d.id) === String(apiD.id));
+          if (liveD && liveD.image_url && !liveD.image_url.includes('unsplash.com')) {
+            return { ...apiD, image_url: liveD.image_url };
+          }
+          return apiD;
+        });
+      }
+      if (Array.isArray(data.trips) && currentSiteState.trips.length > 0) {
+        data.trips = data.trips.map(apiT => {
+          const liveT = currentSiteState.trips.find(t => String(t.id) === String(apiT.id));
+          if (liveT && liveT.image_url && !liveT.image_url.includes('unsplash.com')) {
+            return { ...apiT, image_url: liveT.image_url };
+          }
+          return apiT;
+        });
+      }
+    }
+
+    // Preserve latest state internally
+    if (data.settings) currentSiteState.settings = data.settings;
+    if (Array.isArray(data.fleet) && data.fleet.length > 0) currentSiteState.fleet = data.fleet;
+    if (Array.isArray(data.destinations) && data.destinations.length > 0) currentSiteState.destinations = data.destinations;
+    if (Array.isArray(data.trips) && data.trips.length > 0) currentSiteState.trips = data.trips;
+    if (Array.isArray(data.services) && data.services.length > 0) currentSiteState.services = data.services;
 
     // Deep content signature (excludes volatile timestamps like updated_at to prevent DOM thrashing)
     const currentHash = JSON.stringify({
@@ -673,7 +723,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           return `
             <div class="vehicle-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
               <div class="vehicle-image-wrapper">
-                <img src="${imgUrl}" alt="${escapeHTML(v.model_name)} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.src='${defaultImg}'">
+                <img src="${imgUrl}" alt="${escapeHTML(v.model_name)} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.onerror=null; this.src='${defaultImg}';">
                 <div class="vehicle-badge-overlay">${escapeHTML(v.category || 'Special Fleet')}</div>
                 <div class="vehicle-specs-overlay">${escapeHTML(v.capacity || '4 Seater')} • ${escapeHTML(v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags'))}</div>
               </div>
@@ -734,7 +784,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           return `
             <div class="destination-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
               <div class="destination-img-box">
-                <img src="${imgUrl}" alt="${escapeHTML(d.name)} - Yakshith Nandh Travels" class="destination-img" loading="lazy" onerror="this.src='${defaultDestImg}'">
+                <img src="${imgUrl}" alt="${escapeHTML(d.name)} - Yakshith Nandh Travels" class="destination-img" loading="lazy" onerror="this.onerror=null; this.src='${defaultDestImg}';">
                 <div class="destination-badge">${escapeHTML(d.subtitle || 'Divine Abode')}</div>
               </div>
               <div class="destination-info">
@@ -807,7 +857,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           return `
             <div class="trip-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
               <div class="trip-card-image-box">
-                <img src="${imgUrl}" alt="${escapeHTML(t.title)} - Yakshith Nandh Travels" loading="lazy" onerror="this.src='${defaultTripImg}'">
+                <img src="${imgUrl}" alt="${escapeHTML(t.title)} - Yakshith Nandh Travels" loading="lazy" onerror="this.onerror=null; this.src='${defaultTripImg}';">
                 <span class="trip-duration-badge">📅 ${escapeHTML(t.duration_days || '1 Day')}</span>
                 <span class="trip-all-inc-badge">✓ All-Inclusive</span>
               </div>
@@ -854,15 +904,33 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
   };
 
   // ==========================================================================
-  // REAL-TIME FIRESTORE LISTENER (Live Reactive Updates Across All Devices)
+  // INSTANT HYDRATION FROM CACHE (Zero Blank Flash on Reload)
   // ==========================================================================
+  try {
+    const cachedStateStr = localStorage.getItem('ynt_firestore_cache');
+    if (cachedStateStr) {
+      const cached = JSON.parse(cachedStateStr);
+      if (cached && typeof cached === 'object') {
+        applyWebsiteData(cached, 'firestore');
+      }
+    }
+  } catch (e) {}
+
+  // ==========================================================================
+  // REAL-TIME FIRESTORE LISTENERS (Live Reactive Updates Across All Devices)
+  // ==========================================================================
+
+  // 1. Unified Site Content Snapshot
   try {
     const docRef = doc(db, 'site_content', 'data');
     onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const cloudData = docSnap.data();
         if (cloudData) {
-          applyWebsiteData(cloudData);
+          try {
+            localStorage.setItem('ynt_firestore_cache', JSON.stringify(cloudData));
+          } catch (e) {}
+          applyWebsiteData(cloudData, 'firestore');
           console.log('⚡ Real-time sync: Live state received from Cloud Firestore.');
         }
       }
@@ -871,6 +939,50 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     });
   } catch (err) {
     console.warn('Firestore initialization note:', err.message);
+  }
+
+  // 2. Individual Collection Listeners for Direct Admin Updates
+  try {
+    onSnapshot(collection(db, 'fleet'), (snap) => {
+      if (!snap.empty) {
+        const fleetList = [];
+        snap.forEach(d => {
+          const item = d.data();
+          if (item) fleetList.push(item);
+        });
+        if (fleetList.length > 0) {
+          applyWebsiteData({ fleet: fleetList }, 'firestore');
+        }
+      }
+    }, (err) => console.warn('Fleet collection listener note:', err.message));
+
+    onSnapshot(collection(db, 'destinations'), (snap) => {
+      if (!snap.empty) {
+        const destList = [];
+        snap.forEach(d => {
+          const item = d.data();
+          if (item) destList.push(item);
+        });
+        if (destList.length > 0) {
+          applyWebsiteData({ destinations: destList }, 'firestore');
+        }
+      }
+    }, (err) => console.warn('Destinations collection listener note:', err.message));
+
+    onSnapshot(collection(db, 'trips'), (snap) => {
+      if (!snap.empty) {
+        const tripList = [];
+        snap.forEach(d => {
+          const item = d.data();
+          if (item) tripList.push(item);
+        });
+        if (tripList.length > 0) {
+          applyWebsiteData({ trips: tripList }, 'firestore');
+        }
+      }
+    }, (err) => console.warn('Trips collection listener note:', err.message));
+  } catch (err) {
+    console.warn('Collection listeners note:', err.message);
   }
 
   // ==========================================================================
@@ -885,7 +997,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       if (res.ok) {
         const snapshot = await res.json();
         if (snapshot && snapshot.success) {
-          applyWebsiteData(snapshot);
+          applyWebsiteData(snapshot, 'api');
         }
       }
     } catch (e) {} finally {

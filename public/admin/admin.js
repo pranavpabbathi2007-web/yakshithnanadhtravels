@@ -23,7 +23,9 @@ import {
   saveSettingsToFirestore,
   saveBookingToFirestore,
   recordAdminImageToFirestore,
-  syncAllToFirestore
+  syncAllToFirestore,
+  uploadImageToFirebaseStorage,
+  compressImageFile
 } from './firebase-sdk.js';
 
 function showAdminToast(msg) {
@@ -460,32 +462,18 @@ function compressVehicleImage(file) {
 }
 
 /**
- * Same-Origin Image Uploader
- * Sends compressed image to /api/upload (zero CORS delays, fast local/tmp persistence)
- * Returns { url, dataUrl }
+ * Unified Admin Image Uploader
+ * Delegates to uploadImageToFirebaseStorage with automatic compression and fallback
+ * Returns { success, url, storagePath, source }
  */
-async function uploadImageToServer(file, folder = 'uploads') {
+async function uploadImageToServer(file, folder = 'general') {
   if (!file) return null;
-  const compressed = await compressVehicleImage(file);
-  const cleanBase = (file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '');
-  const filename = `${Date.now()}_${cleanBase}`;
-
-  // Notify backend API for disk/memory fallback in node environments
   try {
-    fetch('/api/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filename: filename,
-        image_data: compressed.dataUrl,
-        folder: folder
-      })
-    }).catch(() => {});
-  } catch (err) {}
-
-  // Always return the permanent compressed Data URL as primary URL:
-  // Zero network latency, permanent, never 404s, works across Vercel & Firestore seamlessly
-  return { url: compressed.dataUrl, dataUrl: compressed.dataUrl, filename };
+    return await uploadImageToFirebaseStorage(file, folder);
+  } catch (err) {
+    console.error(`Upload error for [${folder}]:`, err);
+    return null;
+  }
 }
 
 let currentStatusFilter = 'All';
@@ -733,13 +721,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('veh_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing and uploading photo...';
 
-      const uploaded = await uploadImageToServer(file, 'vehicles');
-      if (uploaded) {
-        if (previewImg) previewImg.src = uploaded.url || uploaded.dataUrl;
-        if (urlInput) urlInput.value = uploaded.url;
-        if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
+      try {
+        const uploaded = await uploadImageToFirebaseStorage(file, 'vehicles');
+        if (uploaded && uploaded.url) {
+          if (previewImg) previewImg.src = uploaded.url;
+          if (urlInput) urlInput.value = uploaded.url;
+          if (statusText) {
+            statusText.innerHTML = uploaded.source === 'firebase_storage'
+              ? '✅ Uploaded to Firebase Storage'
+              : '✅ Photo optimized & ready to save';
+          }
+        }
+      } catch (uploadErr) {
+        console.warn('Vehicle photo upload warning:', uploadErr.message);
+        if (statusText) statusText.innerHTML = '⚠️ Image processing fallback active';
       }
     });
   }
@@ -756,10 +753,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const pickedFile = vehicleImageFile && vehicleImageFile.files && vehicleImageFile.files[0];
       let imageUrl = document.getElementById('veh_image_url').value.trim();
-      if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
-        const uploaded = await uploadImageToServer(pickedFile, 'vehicles');
-        imageUrl = uploaded ? uploaded.url : '';
-        document.getElementById('veh_image_url').value = imageUrl;
+
+      // If a new file is chosen, always upload it
+      if (pickedFile) {
+        if (saveBtn) saveBtn.textContent = 'Uploading Vehicle Image...';
+        try {
+          const uploaded = await uploadImageToFirebaseStorage(pickedFile, 'vehicles');
+          if (uploaded && uploaded.url) {
+            imageUrl = uploaded.url;
+            document.getElementById('veh_image_url').value = imageUrl;
+          }
+        } catch (err) {
+          console.warn('Vehicle image upload error on submit:', err.message);
+        }
+      }
+
+      // If no new file and no input URL, preserve existing vehicle image URL
+      if (!imageUrl && id) {
+        const existing = allFleetData.find(v => String(v.id) === String(id));
+        if (existing && existing.image_url) {
+          imageUrl = existing.image_url;
+        }
       }
 
       const airbagsInput = document.getElementById('veh_airbags') || document.getElementById('veh_luggage');
@@ -800,9 +814,11 @@ document.addEventListener('DOMContentLoaded', () => {
         allFleetData.push(payload);
       }
       setStorage('fleet', allFleetData);
-      saveVehicleToFirestore(payload).catch(() => {});
+
+      // Save directly to Firestore fleet collection & admin_images
+      await saveVehicleToFirestore(payload);
       if (payload.image_url) {
-        recordAdminImageToFirestore('vehicle', payload.model_name, payload.image_url).catch(() => {});
+        await recordAdminImageToFirestore('vehicle', payload.model_name, payload.image_url);
       }
 
       // 2. Call API
@@ -826,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       window.closeVehicleModal();
       await loadFleet(false);
-      alert(id ? 'Vehicle updated successfully!' : 'Vehicle added to fleet!');
+      showAdminToast(`✅ Vehicle <strong>${payload.model_name}</strong> saved & synced!`);
     });
   }
 
@@ -845,13 +861,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('dest_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing and uploading photo...';
 
-      const uploaded = await uploadImageToServer(file, 'destinations');
-      if (uploaded) {
-        if (previewImg) previewImg.src = uploaded.url || uploaded.dataUrl;
-        if (urlInput) urlInput.value = uploaded.url;
-        if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
+      try {
+        const uploaded = await uploadImageToFirebaseStorage(file, 'destinations');
+        if (uploaded && uploaded.url) {
+          if (previewImg) previewImg.src = uploaded.url;
+          if (urlInput) urlInput.value = uploaded.url;
+          if (statusText) {
+            statusText.innerHTML = uploaded.source === 'firebase_storage'
+              ? '✅ Uploaded to Firebase Storage'
+              : '✅ Photo optimized & ready to save';
+          }
+        }
+      } catch (uploadErr) {
+        console.warn('Destination photo upload warning:', uploadErr.message);
+        if (statusText) statusText.innerHTML = '⚠️ Image processing fallback active';
       }
     });
   }
@@ -860,13 +885,35 @@ document.addEventListener('DOMContentLoaded', () => {
     destinationForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('destId').value;
+      const saveBtn = document.getElementById('saveDestinationSubmitBtn') || destinationForm.querySelector('button[type="submit"]');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving Destination...';
+      }
 
       const destFile = destinationImageFile && destinationImageFile.files && destinationImageFile.files[0];
       let imageUrl = document.getElementById('dest_image_url').value.trim();
-      if (destFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
-        const uploaded = await uploadImageToServer(destFile, 'destinations');
-        imageUrl = uploaded ? uploaded.url : '';
-        document.getElementById('dest_image_url').value = imageUrl;
+
+      // If a new file is chosen, always upload it
+      if (destFile) {
+        if (saveBtn) saveBtn.textContent = 'Uploading Destination Image...';
+        try {
+          const uploaded = await uploadImageToFirebaseStorage(destFile, 'destinations');
+          if (uploaded && uploaded.url) {
+            imageUrl = uploaded.url;
+            document.getElementById('dest_image_url').value = imageUrl;
+          }
+        } catch (err) {
+          console.warn('Destination image upload error on submit:', err.message);
+        }
+      }
+
+      // If no new file and no input URL, preserve existing destination image URL
+      if (!imageUrl && id) {
+        const existing = allDestinationsData.find(d => String(d.id) === String(id));
+        if (existing && existing.image_url) {
+          imageUrl = existing.image_url;
+        }
       }
 
       const destStatusEl = document.getElementById('dest_status');
@@ -899,9 +946,11 @@ document.addEventListener('DOMContentLoaded', () => {
         allDestinationsData.push(payload);
       }
       setStorage('destinations', allDestinationsData);
-      saveDestinationToFirestore(payload).catch(() => {});
+
+      // Save directly to Firestore destinations collection & admin_images
+      await saveDestinationToFirestore(payload);
       if (payload.image_url) {
-        recordAdminImageToFirestore('destination', payload.name, payload.image_url).catch(() => {});
+        await recordAdminImageToFirestore('destination', payload.name, payload.image_url);
       }
 
       try {
@@ -915,9 +964,15 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {}
 
       await syncStateToFirebaseCloud();
+
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Destination';
+      }
+
       window.closeDestinationModal();
       await loadDestinations(false);
-      alert(id ? 'Destination updated successfully!' : 'Destination added successfully!');
+      showAdminToast(`✅ Destination <strong>${payload.name}</strong> saved & synced!`);
     });
   }
 
@@ -936,13 +991,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('trip_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing and uploading photo...';
 
-      const uploaded = await uploadImageToServer(file, 'trips');
-      if (uploaded) {
-        if (previewImg) previewImg.src = uploaded.url || uploaded.dataUrl;
-        if (urlInput) urlInput.value = uploaded.url;
-        if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
+      try {
+        const uploaded = await uploadImageToFirebaseStorage(file, 'trips');
+        if (uploaded && uploaded.url) {
+          if (previewImg) previewImg.src = uploaded.url;
+          if (urlInput) urlInput.value = uploaded.url;
+          if (statusText) {
+            statusText.innerHTML = uploaded.source === 'firebase_storage'
+              ? '✅ Uploaded to Firebase Storage'
+              : '✅ Photo optimized & ready to save';
+          }
+        }
+      } catch (uploadErr) {
+        console.warn('Trip photo upload warning:', uploadErr.message);
+        if (statusText) statusText.innerHTML = '⚠️ Image processing fallback active';
       }
     });
   }
@@ -951,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tripForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('tripId').value;
-      const saveBtn = document.getElementById('saveTripSubmitBtn');
+      const saveBtn = document.getElementById('saveTripSubmitBtn') || tripForm.querySelector('button[type="submit"]');
       if (saveBtn) {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving Package...';
@@ -959,17 +1023,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const pickedFile = tripImageFile && tripImageFile.files && tripImageFile.files[0];
       let imageUrl = document.getElementById('trip_image_url').value.trim();
-      if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
-        const uploaded = await uploadImageToServer(pickedFile, 'trips');
-        imageUrl = uploaded ? uploaded.url : '';
-        document.getElementById('trip_image_url').value = imageUrl;
+
+      // If a new file is chosen, always upload it
+      if (pickedFile) {
+        if (saveBtn) saveBtn.textContent = 'Uploading Trip Package Image...';
+        try {
+          const uploaded = await uploadImageToFirebaseStorage(pickedFile, 'trips');
+          if (uploaded && uploaded.url) {
+            imageUrl = uploaded.url;
+            document.getElementById('trip_image_url').value = imageUrl;
+          }
+        } catch (err) {
+          console.warn('Trip image upload error on submit:', err.message);
+        }
+      }
+
+      // If no new file and no input URL, preserve existing trip image URL
+      if (!imageUrl && id) {
+        const existing = allTripsData.find(t => String(t.id) === String(id));
+        if (existing && existing.image_url) {
+          imageUrl = existing.image_url;
+        }
       }
 
       const tripStatusEl = document.getElementById('trip_status');
       const isPopVal = tripStatusEl ? parseInt(tripStatusEl.value, 10) : 1;
+      const tripTitle = document.getElementById('trip_title').value.trim();
 
       const payload = {
-        title: document.getElementById('trip_title').value.trim(),
+        title: tripTitle,
+        name: tripTitle,
         duration_days: document.getElementById('trip_duration').value.trim(),
         subtitle: document.getElementById('trip_subtitle').value.trim(),
         starting_price: document.getElementById('trip_price').value.trim(),
@@ -999,9 +1082,11 @@ document.addEventListener('DOMContentLoaded', () => {
         allTripsData.push(payload);
       }
       setStorage('trips', allTripsData);
-      saveTripToFirestore(payload).catch(() => {});
+
+      // Save directly to Firestore trips collection & admin_images
+      await saveTripToFirestore(payload);
       if (payload.image_url) {
-        recordAdminImageToFirestore('trip', payload.title, payload.image_url).catch(() => {});
+        await recordAdminImageToFirestore('trip', payload.title, payload.image_url);
       }
 
       try {
@@ -1023,7 +1108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       window.closeTripModal();
       await loadTrips(false);
-      alert(id ? 'Trip package updated successfully!' : 'Trip package created successfully!');
+      showAdminToast(`✅ Package <strong>${payload.title}</strong> saved & synced!`);
     });
   }
 
@@ -1872,7 +1957,7 @@ window.openEditTripModal = (id) => {
   if (!trip) return;
   document.getElementById('tripModalTitle').textContent = 'Edit Trip Package';
   document.getElementById('tripId').value = trip.id;
-  document.getElementById('trip_title').value = trip.title || '';
+  document.getElementById('trip_title').value = trip.title || trip.name || '';
   document.getElementById('trip_duration').value = trip.duration_days || '';
   document.getElementById('trip_subtitle').value = trip.subtitle || '';
   document.getElementById('trip_price').value = trip.starting_price || '';
