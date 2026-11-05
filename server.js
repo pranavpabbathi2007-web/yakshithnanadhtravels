@@ -129,8 +129,8 @@ function serveFileDirectly(res, targetPath) {
 
     const ext = path.extname(targetPath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    const isHtml = ext === '.html' || ext === '';
-    const cacheHeader = isHtml
+    const isNoCache = ext === '.html' || ext === '.js' || ext === '.css' || ext === '';
+    const cacheHeader = isNoCache
       ? 'no-cache, must-revalidate'
       : 'public, max-age=86400, stale-while-revalidate=604800';
 

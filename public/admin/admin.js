@@ -10,8 +10,20 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  onSnapshot
-} from './firebase-config.js';
+  deleteDoc,
+  onSnapshot,
+  saveVehicleToFirestore,
+  deleteVehicleFromFirestore,
+  saveDestinationToFirestore,
+  deleteDestinationFromFirestore,
+  saveTripToFirestore,
+  deleteTripFromFirestore,
+  saveServiceToFirestore,
+  deleteServiceFromFirestore,
+  saveSettingsToFirestore,
+  saveBookingToFirestore,
+  syncAllToFirestore
+} from './firebase-sdk.js';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -49,11 +61,10 @@ async function syncStateToFirebaseCloud() {
   setStorage('services', snapshot.services);
   setStorage('settings', snapshot.settings);
 
-  // 2. Sync to Cloud Firestore (Global Single Source of Truth across all devices & browsers)
+  // 2. High-speed multi-collection Cloud Firestore sync (Populates site_content, fleet, destinations, trips, services, settings)
   try {
-    const docRef = doc(db, 'site_content', 'data');
-    await setDoc(docRef, snapshot, { merge: true });
-    console.log('☁️ Synced updated data snapshot to Cloud Firestore.');
+    await syncAllToFirestore(snapshot);
+    console.log('☁️ Synced updated data and collections to Cloud Firestore.');
   } catch (firestoreErr) {
     console.warn('Firestore sync note:', firestoreErr.message);
   }
@@ -794,6 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
         allFleetData.push(payload);
       }
       setStorage('fleet', allFleetData);
+      saveVehicleToFirestore(payload).catch(() => {});
 
       // 2. Call API
       try {
@@ -889,6 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
         allDestinationsData.push(payload);
       }
       setStorage('destinations', allDestinationsData);
+      saveDestinationToFirestore(payload).catch(() => {});
 
       try {
         const url = id ? `/api/destinations/${id}` : '/api/destinations';
@@ -985,6 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
         allTripsData.push(payload);
       }
       setStorage('trips', allTripsData);
+      saveTripToFirestore(payload).catch(() => {});
 
       try {
         const url = id ? `/api/trips/${id}` : '/api/trips';
@@ -1042,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
         allServicesData.push(payload);
       }
       setStorage('services', allServicesData);
+      saveServiceToFirestore(payload).catch(() => {});
 
       try {
         const url = id ? `/api/services/${id}` : '/api/services';
@@ -1080,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       setStorage('settings', payload);
+      saveSettingsToFirestore(payload).catch(() => {});
       try {
         await fetch('/api/settings', {
           method: 'POST',
@@ -2004,6 +2020,7 @@ window.deleteTripRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this trip package?')) return;
   allTripsData = (allTripsData || getStorage('trips', SEED_DATA.trips)).filter(t => String(t.id) !== String(id));
   setStorage('trips', allTripsData);
+  deleteTripFromFirestore(id).catch(() => {});
   try {
     await fetch(`/api/trips/${id}`, { method: 'DELETE' });
   } catch (err) {}
@@ -2031,6 +2048,7 @@ window.deleteVehicleRecord = async (id) => {
   if (!confirm('Are you sure you want to remove this vehicle from fleet?')) return;
   allFleetData = (allFleetData || getStorage('fleet', SEED_DATA.fleet)).filter(v => String(v.id) !== String(id));
   setStorage('fleet', allFleetData);
+  deleteVehicleFromFirestore(id).catch(() => {});
   try {
     await fetch(`/api/fleet/${id}`, { method: 'DELETE' });
   } catch (err) {}
@@ -2042,6 +2060,7 @@ window.deleteServiceRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this service offering?')) return;
   allServicesData = (allServicesData || getStorage('services', SEED_DATA.services)).filter(s => String(s.id) !== String(id));
   setStorage('services', allServicesData);
+  deleteServiceFromFirestore(id).catch(() => {});
   try {
     await fetch(`/api/services/${id}`, { method: 'DELETE' });
   } catch (err) {}
@@ -2053,6 +2072,7 @@ window.deleteDestinationRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this destination?')) return;
   allDestinationsData = (allDestinationsData || getStorage('destinations', SEED_DATA.destinations)).filter(d => String(d.id) !== String(id));
   setStorage('destinations', allDestinationsData);
+  deleteDestinationFromFirestore(id).catch(() => {});
   try {
     await fetch(`/api/destinations/${id}`, { method: 'DELETE' });
   } catch (err) {}
