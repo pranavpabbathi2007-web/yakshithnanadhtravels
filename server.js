@@ -203,10 +203,17 @@ function serveStaticFile(req, res, rawPathname) {
 }
 
 /**
- * Main HTTP Server
+ * Main Request Handler (Used for both Node.js HTTP server & Vercel Serverless Function)
  */
-const server = http.createServer(async (req, res) => {
-  const parsedUrl = url.parse(req.url, true);
+async function handleRequest(req, res) {
+  let rawUrl = req.url || '/';
+  if (req.headers['x-forwarded-uri'] && req.headers['x-forwarded-uri'].startsWith('/api')) {
+    rawUrl = req.headers['x-forwarded-uri'];
+  } else if (req.headers['x-vercel-matched-path'] && req.headers['x-vercel-matched-path'].startsWith('/api')) {
+    rawUrl = req.headers['x-vercel-matched-path'];
+  }
+
+  const parsedUrl = url.parse(rawUrl, true);
   let pathname = parsedUrl.pathname || '/';
   // Normalize slashes
   pathname = pathname.replace(/\\/g, '/');
@@ -216,9 +223,18 @@ const server = http.createServer(async (req, res) => {
   if (method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS, HEAD',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400'
+    });
+    return res.end();
+  }
+
+  // HEAD method handling
+  if (method === 'HEAD') {
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'text/html; charset=utf-8'
     });
     return res.end();
   }
@@ -607,6 +623,16 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // Snapshot endpoint for instant multi-browser state sync
+  if (pathname === '/api/snapshot' && method === 'GET') {
+    try {
+      const snapshot = db.getFullSnapshot();
+      return sendJSON(res, 200, { success: true, ...snapshot });
+    } catch (err) {
+      return sendJSON(res, 200, { success: false, error: err.message });
+    }
+  }
+
   // ==========================================================================
   // FALLTHROUGH: SERVE STATIC ASSETS (HTML, CSS, JS, IMAGES)
   // ==========================================================================
@@ -617,7 +643,9 @@ const server = http.createServer(async (req, res) => {
   // 405 Method Not Allowed
   res.writeHead(405, { 'Content-Type': 'text/plain' });
   res.end('Method Not Allowed');
-});
+}
+
+const server = http.createServer(handleRequest);
 
 // Start Server
 if (require.main === module) {
@@ -648,3 +676,4 @@ if (require.main === module) {
 }
 
 module.exports = server;
+module.exports.handleRequest = handleRequest;

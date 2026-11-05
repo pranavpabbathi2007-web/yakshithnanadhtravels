@@ -617,6 +617,8 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     });
   };
 
+  const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
+
   // Dynamic Fleet Loader (Loads custom vehicle additions from API or LocalStorage)
   const loadWebsiteFleet = async () => {
     const grid = document.querySelector('.vehicles-grid');
@@ -627,9 +629,26 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const res = await fetch('/api/fleet');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.fleet && data.fleet.length > 0) fleet = data.fleet;
+        if (data && data.fleet && data.fleet.length > 0) {
+          fleet = data.fleet;
+          try { localStorage.setItem('ynt_fleet', JSON.stringify(fleet)); } catch(e) {}
+        }
       }
     } catch (e) {}
+
+    // Cloud fallback if API had network issue
+    if (!fleet) {
+      try {
+        const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+        if (cloudRes.ok) {
+          const cData = await cloudRes.json();
+          if (cData && cData.fleet && cData.fleet.length > 0) {
+            fleet = cData.fleet;
+            try { localStorage.setItem('ynt_fleet', JSON.stringify(fleet)); } catch(e) {}
+          }
+        }
+      } catch (e) {}
+    }
 
     if (!fleet) {
       try {
@@ -699,9 +718,26 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const res = await fetch('/api/destinations');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.destinations && data.destinations.length > 0) dests = data.destinations;
+        if (data && data.destinations && data.destinations.length > 0) {
+          dests = data.destinations;
+          try { localStorage.setItem('ynt_destinations', JSON.stringify(dests)); } catch(e) {}
+        }
       }
     } catch (e) {}
+
+    // Cloud fallback if API had network issue
+    if (!dests) {
+      try {
+        const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+        if (cloudRes.ok) {
+          const cData = await cloudRes.json();
+          if (cData && cData.destinations && cData.destinations.length > 0) {
+            dests = cData.destinations;
+            try { localStorage.setItem('ynt_destinations', JSON.stringify(dests)); } catch(e) {}
+          }
+        }
+      } catch (e) {}
+    }
 
     if (!dests) {
       try {
@@ -753,9 +789,26 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const res = await fetch('/api/trips');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.trips && data.trips.length > 0) trips = data.trips;
+        if (data && data.trips && data.trips.length > 0) {
+          trips = data.trips;
+          try { localStorage.setItem('ynt_trips', JSON.stringify(trips)); } catch(e) {}
+        }
       }
     } catch (e) {}
+
+    // Cloud fallback if API had network issue
+    if (!trips) {
+      try {
+        const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+        if (cloudRes.ok) {
+          const cData = await cloudRes.json();
+          if (cData && cData.trips && cData.trips.length > 0) {
+            trips = cData.trips;
+            try { localStorage.setItem('ynt_trips', JSON.stringify(trips)); } catch(e) {}
+          }
+        }
+      } catch (e) {}
+    }
 
     if (!trips) {
       try {

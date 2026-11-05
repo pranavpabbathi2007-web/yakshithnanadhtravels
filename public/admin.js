@@ -11,6 +11,26 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
+const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
+
+async function syncStateToFirebaseCloud() {
+  try {
+    const snapshot = {
+      fleet: allFleetData || [],
+      destinations: allDestinationsData || [],
+      trips: allTripsData || [],
+      services: allServicesData || [],
+      updated_at: new Date().toISOString()
+    };
+    const jsonBlob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
+    await uploadBytes(cloudRef, jsonBlob);
+    console.log('☁️ Synced updated data snapshot to Firebase Cloud Storage.');
+  } catch (err) {
+    console.warn('Firebase Cloud sync note:', err.message);
+  }
+}
+
 // ==========================================================================
 // RESILIENT DATA LAYER (Auto-detects Node.js API vs Local Storage Fallback)
 // Ensures Admin Console works on Node Server, Vercel, GitHub Pages, or any device!
@@ -664,7 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       window.closeVehicleModal();
-      loadFleet();
+      await loadFleet();
+      syncStateToFirebaseCloud();
       alert(id ? 'Vehicle updated successfully!' : 'Vehicle added to fleet!');
     });
   }
@@ -763,7 +784,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       window.closeDestinationModal();
-      loadDestinations();
+      await loadDestinations();
+      syncStateToFirebaseCloud();
       alert(id ? 'Destination updated successfully!' : 'Destination added successfully!');
     });
   }
@@ -874,7 +896,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       window.closeTripModal();
-      loadTrips();
+      await loadTrips();
+      syncStateToFirebaseCloud();
       alert(id ? 'Trip package updated successfully!' : 'Trip package created successfully!');
     });
   }
@@ -913,7 +936,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       window.closeServiceEditModal();
-      loadServices();
+      await loadServices();
+      syncStateToFirebaseCloud();
       alert(id ? 'Service updated!' : 'Service created!');
     });
   }
@@ -1136,7 +1160,20 @@ async function loadServices() {
       throw new Error('API offline');
     }
   } catch (err) {
-    allServicesData = getStorage('services', SEED_DATA.services);
+    try {
+      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+      if (cloudRes.ok) {
+        const cData = await cloudRes.json();
+        if (cData && cData.services && cData.services.length > 0) {
+          allServicesData = cData.services;
+          setStorage('services', allServicesData);
+        }
+      }
+    } catch (cErr) {}
+
+    if (!allServicesData || allServicesData.length === 0) {
+      allServicesData = getStorage('services', SEED_DATA.services);
+    }
   }
 
   container.innerHTML = allServicesData.map(s => `
@@ -1175,7 +1212,20 @@ async function loadFleet() {
       throw new Error('API offline');
     }
   } catch (err) {
-    allFleetData = getStorage('fleet', SEED_DATA.fleet);
+    try {
+      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+      if (cloudRes.ok) {
+        const cData = await cloudRes.json();
+        if (cData && cData.fleet && cData.fleet.length > 0) {
+          allFleetData = cData.fleet;
+          setStorage('fleet', allFleetData);
+        }
+      }
+    } catch (cErr) {}
+
+    if (!allFleetData || allFleetData.length === 0) {
+      allFleetData = getStorage('fleet', SEED_DATA.fleet);
+    }
   }
 
   const defaultVehiclePhoto = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80';
@@ -1237,7 +1287,20 @@ async function loadDestinations() {
       throw new Error('API offline');
     }
   } catch (err) {
-    allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+    try {
+      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+      if (cloudRes.ok) {
+        const cData = await cloudRes.json();
+        if (cData && cData.destinations && cData.destinations.length > 0) {
+          allDestinationsData = cData.destinations;
+          setStorage('destinations', allDestinationsData);
+        }
+      }
+    } catch (cErr) {}
+
+    if (!allDestinationsData || allDestinationsData.length === 0) {
+      allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+    }
   }
 
   const defaultDestPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
@@ -1294,7 +1357,20 @@ async function loadTrips() {
       throw new Error('API offline');
     }
   } catch (err) {
-    allTripsData = getStorage('trips', SEED_DATA.trips);
+    try {
+      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
+      if (cloudRes.ok) {
+        const cData = await cloudRes.json();
+        if (cData && cData.trips && cData.trips.length > 0) {
+          allTripsData = cData.trips;
+          setStorage('trips', allTripsData);
+        }
+      }
+    } catch (cErr) {}
+
+    if (!allTripsData || allTripsData.length === 0) {
+      allTripsData = getStorage('trips', SEED_DATA.trips);
+    }
   }
 
   const countBadge = document.getElementById('tabTripsCount');
