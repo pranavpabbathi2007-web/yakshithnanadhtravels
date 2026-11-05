@@ -628,7 +628,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           <div class="vehicle-image-wrapper">
             <img src="${imgUrl}" alt="${v.model_name} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.src='${defaultImg}'">
             <div class="vehicle-badge-overlay">${v.category || 'Special Fleet'}</div>
-            <div class="vehicle-specs-overlay">${v.capacity || '4 Seater'} • ${v.airbags || v.luggage_bags || 'Dual Airbags'}</div>
+            <div class="vehicle-specs-overlay">${v.capacity || '4 Seater'} • ${v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags')}</div>
           </div>
           <div class="vehicle-details">
             <h3 class="vehicle-name">${v.model_name}</h3>
@@ -636,16 +636,20 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             <p class="vehicle-desc">${v.description || 'Maintained to pristine standards, fully air-conditioned, and equipped with modern safety features for quiet, relaxed travel.'}</p>
             <div class="vehicle-specs-row">
               <div class="spec-item">
-                <strong>${v.capacity || 'Seating'}</strong>
-                <span>Spacious Seating</span>
+                <strong>${v.capacity || '4 Seater'}</strong>
+                <span>Seats</span>
               </div>
               <div class="spec-item">
-                <strong>AC Cabin</strong>
-                <span>Climate Control</span>
+                <strong>${v.daily_rent || '₹3,500/day'}</strong>
+                <span>Daily Rent</span>
+              </div>
+              <div class="spec-item">
+                <strong>${v.mileage || '14-18 km/l'}</strong>
+                <span>Mileage</span>
               </div>
               <div class="spec-item">
                 <strong>${v.airbags || v.luggage_bags || 'Dual Airbags'}</strong>
-                <span>Safety Airbags</span>
+                <span>Airbags</span>
               </div>
             </div>
             <div class="vehicle-action-footer">

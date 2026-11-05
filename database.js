@@ -85,6 +85,16 @@ function initDatabase() {
   } catch (e) {
     // column already exists
   }
+  try {
+    db.exec(`ALTER TABLE fleet ADD COLUMN daily_rent TEXT;`);
+  } catch (e) {
+    // column already exists
+  }
+  try {
+    db.exec(`ALTER TABLE fleet ADD COLUMN mileage TEXT;`);
+  } catch (e) {
+    // column already exists
+  }
 
   // 4. Destinations Section Table
   db.exec(`
@@ -187,32 +197,41 @@ function seedData() {
   const fleetCount = db.prepare('SELECT COUNT(*) as count FROM fleet').get().count;
   if (fleetCount === 0) {
     const insertFleet = db.prepare(`
-      INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km)
-      VALUES (?, ?, ?, ?, 1, ?, ?)
+      INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km, airbags, daily_rent, mileage)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
     `);
     insertFleet.run(
       'Toyota Innova Crysta (Captain Seats)',
       'Luxury SUV',
-      7,
-      5,
+      '7 Seater',
+      '7 Airbags',
       'Plush captain seats, dual-zone AC, mountain ghat hill control, ideal for family pilgrimages.',
-      '₹18 / km'
+      '₹18 / km',
+      '7 Airbags (Knee + Curtain)',
+      '₹4,200 / day',
+      '14 km/l'
     );
     insertFleet.run(
       'Toyota Innova Crysta (Bench Seating)',
       'Executive SUV',
-      8,
-      5,
+      '8 Seater',
+      '6 Airbags',
       '8 passenger capacity, generous luggage boot, smooth suspension on Tirumala hairpins.',
-      '₹19 / km'
+      '₹19 / km',
+      '6 Airbags',
+      '₹4,500 / day',
+      '13.5 km/l'
     );
     insertFleet.run(
       'Premium City Sedan (Honda City / Ciaz)',
       'Executive Sedan',
-      4,
-      3,
+      '4 Seater',
+      'Dual Airbags',
       'Ultra-silent cabin, rapid cooling AC, cushioned ride for couples, seniors & small families.',
-      '₹13 / km'
+      '₹13 / km',
+      'Dual Front Airbags',
+      '₹2,499 / day',
+      '20 km/l'
     );
   }
 
@@ -528,9 +547,11 @@ function getFleet() {
 
 function addFleetVehicle(data) {
   const airbagsVal = String(data.airbags || data.luggage_bags || 'Dual Airbags');
+  const dailyRentVal = data.daily_rent ? String(data.daily_rent).trim() : '';
+  const mileageVal = data.mileage ? String(data.mileage).trim() : '';
   const info = db.prepare(`
-    INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km, image_url, airbags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO fleet (model_name, category, capacity, luggage_bags, is_available, description, rate_per_km, image_url, airbags, daily_rent, mileage)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.model_name,
     data.category || 'Standard',
@@ -540,16 +561,20 @@ function addFleetVehicle(data) {
     data.description || '',
     data.rate_per_km || '',
     data.image_url || '',
-    airbagsVal
+    airbagsVal,
+    dailyRentVal,
+    mileageVal
   );
   return db.prepare('SELECT * FROM fleet WHERE id = ?').get(info.lastInsertRowid);
 }
 
 function updateFleetVehicle(id, data) {
   const airbagsVal = String(data.airbags || data.luggage_bags || 'Dual Airbags');
+  const dailyRentVal = data.daily_rent !== undefined ? String(data.daily_rent).trim() : '';
+  const mileageVal = data.mileage !== undefined ? String(data.mileage).trim() : '';
   db.prepare(`
     UPDATE fleet
-    SET model_name = ?, category = ?, capacity = ?, luggage_bags = ?, is_available = ?, description = ?, rate_per_km = ?, image_url = ?, airbags = ?
+    SET model_name = ?, category = ?, capacity = ?, luggage_bags = ?, is_available = ?, description = ?, rate_per_km = ?, image_url = ?, airbags = ?, daily_rent = ?, mileage = ?
     WHERE id = ?
   `).run(
     data.model_name,
@@ -561,6 +586,8 @@ function updateFleetVehicle(id, data) {
     data.rate_per_km,
     data.image_url || '',
     airbagsVal,
+    dailyRentVal,
+    mileageVal,
     id
   );
   return db.prepare('SELECT * FROM fleet WHERE id = ?').get(id);

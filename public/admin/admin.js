@@ -107,6 +107,8 @@ const SEED_DATA = {
       airbags: 'Dual Front Airbags',
       luggage_bags: 'Dual Front Airbags',
       rate_per_km: '₹12/km',
+      daily_rent: '₹2,499 / day',
+      mileage: '22 km/l',
       description: 'Clean, fuel-efficient sedan ideal for small families and airport transfers.',
       image_url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
       is_available: 1
@@ -119,6 +121,8 @@ const SEED_DATA = {
       airbags: 'Dual Front Airbags',
       luggage_bags: 'Dual Front Airbags',
       rate_per_km: '₹18/km',
+      daily_rent: '₹3,499 / day',
+      mileage: '13 km/l',
       description: 'Spacious family MPV with captain seats and ample comfort on Tirupati hills.',
       image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
       is_available: 1
@@ -131,6 +135,8 @@ const SEED_DATA = {
       airbags: '7 Airbags (Knee + Curtain)',
       luggage_bags: '7 Airbags (Knee + Curtain)',
       rate_per_km: '₹22/km',
+      daily_rent: '₹4,200 / day',
+      mileage: '14 km/l',
       description: 'Top-tier pilgrimage comfort with plush interiors and superior ride quality on Tirumala mountain roads.',
       image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
       is_available: 1
@@ -564,6 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
         airbags: airbagsVal || 'Dual Airbags',
         luggage_bags: airbagsVal || 'Dual Airbags',
         rate_per_km: document.getElementById('veh_rate').value.trim(),
+        daily_rent: document.getElementById('veh_daily_rent') ? document.getElementById('veh_daily_rent').value.trim() : '',
+        mileage: document.getElementById('veh_mileage') ? document.getElementById('veh_mileage').value.trim() : '',
         description: document.getElementById('veh_desc').value.trim(),
         image_url: imageUrl,
         is_available: 1
@@ -1021,7 +1029,9 @@ async function loadFleet() {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.82rem; margin-bottom:14px; background:#FFF9F0; padding:8px 10px; border-radius:6px; border:1px solid var(--color-border);">
           <div><strong>Seats:</strong> ${escapeHTML(String(v.capacity || '4 Passengers'))}</div>
           <div><strong>Airbags:</strong> ${escapeHTML(String(airbagsDisplay))}</div>
-          <div style="grid-column:span 2; color:var(--color-primary); font-weight:700;"><strong>Tariff:</strong> ${escapeHTML(v.rate_per_km || 'Competitive')}</div>
+          <div><strong>Rate (km):</strong> ${escapeHTML(v.rate_per_km || '₹18/km')}</div>
+          <div><strong>Daily Rent:</strong> <span style="color:var(--color-primary); font-weight:700;">${escapeHTML(v.daily_rent || '₹3,500/day')}</span></div>
+          <div style="grid-column:span 2;"><strong>Mileage:</strong> ${escapeHTML(v.mileage || '14-16 km/l')}</div>
           ${isFirebase ? `
             <div style="grid-column:span 2; font-size:0.72rem; color:#D86300; font-weight:600; display:flex; align-items:center; gap:4px;">
               <span>🔥 Stored in Firebase Cloud</span>
@@ -1229,6 +1239,9 @@ window.openAddVehicleModal = () => {
   const airbagsEl = document.getElementById('veh_airbags') || document.getElementById('veh_luggage');
   if (airbagsEl) airbagsEl.value = 'Dual Airbags';
 
+  if (document.getElementById('veh_daily_rent')) document.getElementById('veh_daily_rent').value = '';
+  if (document.getElementById('veh_mileage')) document.getElementById('veh_mileage').value = '';
+
   const previewBox = document.getElementById('veh_image_preview_box');
   if (previewBox) previewBox.style.display = 'none';
   const urlInput = document.getElementById('veh_image_url');
@@ -1249,6 +1262,12 @@ window.openEditVehicleModal = (id) => {
   if (airbagsEl) airbagsEl.value = veh.airbags || veh.luggage_bags || 'Dual Airbags';
 
   document.getElementById('veh_rate').value = veh.rate_per_km || '';
+  if (document.getElementById('veh_daily_rent')) {
+    document.getElementById('veh_daily_rent').value = veh.daily_rent || '';
+  }
+  if (document.getElementById('veh_mileage')) {
+    document.getElementById('veh_mileage').value = veh.mileage || '';
+  }
   document.getElementById('veh_desc').value = veh.description || '';
 
   const urlInput = document.getElementById('veh_image_url');
