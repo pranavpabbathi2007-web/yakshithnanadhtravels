@@ -5,7 +5,6 @@
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getPerformance } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-performance.js";
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -14,6 +13,7 @@ import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   getDoc,
@@ -47,19 +47,22 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Initialize Cloud Firestore with auto-detect long polling for maximum reliability across all networks
+let db;
+try {
+  db = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true
+  });
+} catch (e) {
+  db = getFirestore(app);
+}
+
 const storage = getStorage(app);
 
-// Initialize Performance Monitoring and get a reference to the service
-let perf = null;
-try {
-  if (typeof window !== 'undefined') {
-    perf = getPerformance(app);
-    console.log('⚡ Firebase Performance Monitoring initialized.');
-  }
-} catch (perfErr) {
-  console.warn('Firebase Performance Monitoring note:', perfErr.message);
-}
+// Safe Performance stub (prevents 503 network errors from firebaselogging-pa.googleapis.com)
+const perf = null;
+const getPerformance = () => null;
 
 // ==========================================================================
 // HIGH-SPEED FIRESTORE ADMIN DATA STORE FUNCTIONS

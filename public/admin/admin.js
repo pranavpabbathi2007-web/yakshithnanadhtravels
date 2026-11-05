@@ -84,72 +84,142 @@ async function syncStateToFirebaseCloud() {
   }
 }
 
+let initAdminCloudPromise = null;
+let liveSnapshotAttached = false;
+
 async function initAdminCloudState() {
-  // 1. First priority: Cloud Firestore single source of truth with 2.5s safety timeout
+  if (initAdminCloudPromise) {
+    return initAdminCloudPromise;
+  }
+  initAdminCloudPromise = _doInitAdminCloudState();
+  return initAdminCloudPromise;
+}
+
+async function _doInitAdminCloudState() {
+  // 1. Immediately hydrate memory & storage from local cache so the UI is responsive with 0ms wait
+  allFleetData = getStorage('fleet', SEED_DATA.fleet);
+  allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+  allTripsData = getStorage('trips', SEED_DATA.trips);
+  allServicesData = getStorage('services', SEED_DATA.services);
+
+  const docRef = doc(db, 'site_content', 'data');
+
+  // 2. Attach real-time Firestore listeners immediately so updates stream live
+  if (!liveSnapshotAttached) {
+    liveSnapshotAttached = true;
+    try {
+      onSnapshot(docRef, (liveSnap) => {
+        if (liveSnap && liveSnap.exists && liveSnap.exists()) {
+          const liveData = liveSnap.data();
+          if (liveData && liveData.updated_at) {
+            let changed = false;
+            if (Array.isArray(liveData.fleet) && liveData.fleet.length > 0) {
+              allFleetData = liveData.fleet;
+              setStorage('fleet', allFleetData);
+              changed = true;
+            }
+            if (Array.isArray(liveData.destinations) && liveData.destinations.length > 0) {
+              allDestinationsData = liveData.destinations;
+              setStorage('destinations', allDestinationsData);
+              changed = true;
+            }
+            if (Array.isArray(liveData.trips) && liveData.trips.length > 0) {
+              allTripsData = liveData.trips;
+              setStorage('trips', allTripsData);
+              changed = true;
+            }
+            if (Array.isArray(liveData.services) && liveData.services.length > 0) {
+              allServicesData = liveData.services;
+              setStorage('services', allServicesData);
+              changed = true;
+            }
+            if (liveData.settings && typeof liveData.settings === 'object') {
+              setStorage('settings', liveData.settings);
+            }
+            if (changed) {
+              console.log('⚡ Real-time sync: Live state received from Cloud Firestore.');
+              loadStats().catch(() => {});
+              loadFleet().catch(() => {});
+              loadDestinations().catch(() => {});
+              loadTrips().catch(() => {});
+              loadServices().catch(() => {});
+              loadSettings().catch(() => {});
+            }
+          }
+        }
+      }, (err) => {
+        // Non-fatal background listener notice
+        console.debug('Admin onSnapshot status:', err.message);
+      });
+    } catch (e) {
+      console.debug('Snapshot listener setup note:', e.message);
+    }
+  }
+
+  // 3. Load initial document with non-throwing safety window (resolves null instead of throwing on slow networks)
   try {
-    const docRef = doc(db, 'site_content', 'data');
-    const snap = await Promise.race([
-      getDoc(docRef),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 2500))
-    ]);
+    const fetchDocPromise = getDoc(docRef).catch(() => null);
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 6000));
+    const snap = await Promise.race([fetchDocPromise, timeoutPromise]);
+
     if (snap && snap.exists && snap.exists()) {
       const cData = snap.data();
       if (cData) {
-        if (Array.isArray(cData.fleet)) { allFleetData = cData.fleet; setStorage('fleet', allFleetData); }
-        if (Array.isArray(cData.destinations)) { allDestinationsData = cData.destinations; setStorage('destinations', allDestinationsData); }
-        if (Array.isArray(cData.trips)) { allTripsData = cData.trips; setStorage('trips', allTripsData); }
-        if (Array.isArray(cData.services)) { allServicesData = cData.services; setStorage('services', allServicesData); }
-        if (cData.settings && typeof cData.settings === 'object') { setStorage('settings', cData.settings); }
+        if (Array.isArray(cData.fleet) && cData.fleet.length > 0) {
+          allFleetData = cData.fleet;
+          setStorage('fleet', allFleetData);
+        }
+        if (Array.isArray(cData.destinations) && cData.destinations.length > 0) {
+          allDestinationsData = cData.destinations;
+          setStorage('destinations', allDestinationsData);
+        }
+        if (Array.isArray(cData.trips) && cData.trips.length > 0) {
+          allTripsData = cData.trips;
+          setStorage('trips', allTripsData);
+        }
+        if (Array.isArray(cData.services) && cData.services.length > 0) {
+          allServicesData = cData.services;
+          setStorage('services', allServicesData);
+        }
+        if (cData.settings && typeof cData.settings === 'object') {
+          setStorage('settings', cData.settings);
+        }
         console.log('✅ Loaded latest cloud state from Cloud Firestore.');
+        return true;
       }
-    } else {
+    } else if (snap && !snap.exists()) {
       console.log('Initializing baseline cloud state in Cloud Firestore...');
-      allFleetData = getStorage('fleet', SEED_DATA.fleet);
-      allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
-      allTripsData = getStorage('trips', SEED_DATA.trips);
-      allServicesData = getStorage('services', SEED_DATA.services);
       syncStateToFirebaseCloud().catch(() => {});
     }
-
-    // Subscribe to live Firestore updates from other admin sessions
-    onSnapshot(docRef, (liveSnap) => {
-      if (liveSnap && liveSnap.exists && liveSnap.exists()) {
-        const liveData = liveSnap.data();
-        if (liveData && liveData.updated_at) {
-          if (Array.isArray(liveData.fleet)) allFleetData = liveData.fleet;
-          if (Array.isArray(liveData.destinations)) allDestinationsData = liveData.destinations;
-          if (Array.isArray(liveData.trips)) allTripsData = liveData.trips;
-          if (Array.isArray(liveData.services)) allServicesData = liveData.services;
-        }
-      }
-    }, (err) => console.warn('Admin onSnapshot note:', err.message));
-
-    return true;
   } catch (err) {
-    console.warn('Firestore initialization note:', err.message);
+    console.debug('Firestore initial load note:', err.message);
   }
 
-  // 2. Fallback: Fast API server snapshot
+  // 4. Secondary fallback: check local API server snapshot if available
   try {
     const apiRes = await fetch('/api/snapshot');
     if (apiRes.ok) {
       const s = await apiRes.json();
       if (s && s.success) {
-        if (Array.isArray(s.fleet)) { allFleetData = s.fleet; setStorage('fleet', allFleetData); }
-        if (Array.isArray(s.destinations)) { allDestinationsData = s.destinations; setStorage('destinations', allDestinationsData); }
-        if (Array.isArray(s.trips)) { allTripsData = s.trips; setStorage('trips', allTripsData); }
-        if (Array.isArray(s.services)) { allServicesData = s.services; setStorage('services', allServicesData); }
-        if (s.settings) { setStorage('settings', s.settings); }
-        return true;
+        if (!allFleetData || allFleetData.length === 0) {
+          if (Array.isArray(s.fleet)) { allFleetData = s.fleet; setStorage('fleet', allFleetData); }
+        }
+        if (!allDestinationsData || allDestinationsData.length === 0) {
+          if (Array.isArray(s.destinations)) { allDestinationsData = s.destinations; setStorage('destinations', allDestinationsData); }
+        }
+        if (!allTripsData || allTripsData.length === 0) {
+          if (Array.isArray(s.trips)) { allTripsData = s.trips; setStorage('trips', allTripsData); }
+        }
+        if (!allServicesData || allServicesData.length === 0) {
+          if (Array.isArray(s.services)) { allServicesData = s.services; setStorage('services', allServicesData); }
+        }
       }
     }
-  } catch (apiErr) {}
+  } catch (apiErr) {
+    // Expected when running purely on Vercel static
+  }
 
-  allFleetData = getStorage('fleet', SEED_DATA.fleet);
-  allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
-  allTripsData = getStorage('trips', SEED_DATA.trips);
-  allServicesData = getStorage('services', SEED_DATA.services);
-  return false;
+  return true;
 }
 
 // ==========================================================================
