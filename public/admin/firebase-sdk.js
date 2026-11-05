@@ -205,19 +205,36 @@ async function saveBookingToFirestore(booking) {
   }
 }
 
+// Helper: Sanitize object so no undefined fields ever reach Firestore setDoc()
+function sanitizeForFirestore(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+        out[k] = sanitizeForFirestore(v);
+      } else {
+        out[k] = v;
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Record an updated image into Firestore admin_images collection
  */
 async function recordAdminImageToFirestore(type, name, imageUrl) {
   if (!imageUrl) return;
   try {
+    const titleVal = String(name || type || 'Image');
     const cleanKey = String(name || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
-    await setDoc(doc(db, 'admin_images', `${type}_${cleanKey}`), {
+    await setDoc(doc(db, 'admin_images', `${type}_${cleanKey}`), sanitizeForFirestore({
       category: type,
-      title: name,
+      title: titleVal,
       image_url: imageUrl,
       updated_at: new Date().toISOString()
-    }, { merge: true });
+    }), { merge: true });
   } catch (e) {
     console.warn('Record admin image note:', e.message);
   }
@@ -233,7 +250,7 @@ async function syncAllToFirestore(snapshot) {
 
   // 1. Unified snapshot for instant public website 1-read hydration
   promises.push(
-    setDoc(doc(db, 'site_content', 'data'), snapshot, { merge: true })
+    setDoc(doc(db, 'site_content', 'data'), sanitizeForFirestore(snapshot), { merge: true })
       .catch(e => console.warn('Snapshot write note:', e.message))
   );
 
@@ -254,7 +271,7 @@ async function syncAllToFirestore(snapshot) {
   // 3. Settings document
   if (snapshot.settings) {
     promises.push(
-      setDoc(doc(db, 'settings', 'general'), snapshot.settings, { merge: true })
+      setDoc(doc(db, 'settings', 'general'), sanitizeForFirestore(snapshot.settings), { merge: true })
         .catch(e => console.warn('Settings write note:', e.message))
     );
   }
@@ -264,18 +281,18 @@ async function syncAllToFirestore(snapshot) {
     for (const v of snapshot.fleet) {
       if (v && v.id) {
         promises.push(
-          setDoc(doc(db, 'fleet', String(v.id)), v, { merge: true })
+          setDoc(doc(db, 'fleet', String(v.id)), sanitizeForFirestore(v), { merge: true })
             .catch(e => console.warn('Fleet vehicle write note:', e.message))
         );
         if (v.image_url) {
           const cleanKey = String(v.model_name || v.id).replace(/[^a-zA-Z0-9_-]/g, '_');
           promises.push(
-            setDoc(doc(db, 'admin_images', `vehicle_${cleanKey}`), {
+            setDoc(doc(db, 'admin_images', `vehicle_${cleanKey}`), sanitizeForFirestore({
               category: 'fleet',
-              title: v.model_name,
+              title: v.model_name || 'Vehicle',
               image_url: v.image_url,
               updated_at: new Date().toISOString()
-            }, { merge: true }).catch(() => {})
+            }), { merge: true }).catch(() => {})
           );
         }
       }
@@ -287,18 +304,18 @@ async function syncAllToFirestore(snapshot) {
     for (const d of snapshot.destinations) {
       if (d && d.id) {
         promises.push(
-          setDoc(doc(db, 'destinations', String(d.id)), d, { merge: true })
+          setDoc(doc(db, 'destinations', String(d.id)), sanitizeForFirestore(d), { merge: true })
             .catch(e => console.warn('Destination write note:', e.message))
         );
         if (d.image_url) {
           const cleanKey = String(d.name || d.id).replace(/[^a-zA-Z0-9_-]/g, '_');
           promises.push(
-            setDoc(doc(db, 'admin_images', `dest_${cleanKey}`), {
+            setDoc(doc(db, 'admin_images', `dest_${cleanKey}`), sanitizeForFirestore({
               category: 'destinations',
-              title: d.name,
+              title: d.name || 'Destination',
               image_url: d.image_url,
               updated_at: new Date().toISOString()
-            }, { merge: true }).catch(() => {})
+            }), { merge: true }).catch(() => {})
           );
         }
       }
@@ -310,18 +327,19 @@ async function syncAllToFirestore(snapshot) {
     for (const t of snapshot.trips) {
       if (t && t.id) {
         promises.push(
-          setDoc(doc(db, 'trips', String(t.id)), t, { merge: true })
+          setDoc(doc(db, 'trips', String(t.id)), sanitizeForFirestore(t), { merge: true })
             .catch(e => console.warn('Trip write note:', e.message))
         );
         if (t.image_url) {
-          const cleanKey = String(t.title || t.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          const tripTitle = t.title || t.name || 'Trip Package';
+          const cleanKey = String(tripTitle || t.id).replace(/[^a-zA-Z0-9_-]/g, '_');
           promises.push(
-            setDoc(doc(db, 'admin_images', `trip_${cleanKey}`), {
+            setDoc(doc(db, 'admin_images', `trip_${cleanKey}`), sanitizeForFirestore({
               category: 'trips',
-              title: t.title,
+              title: tripTitle,
               image_url: t.image_url,
               updated_at: new Date().toISOString()
-            }, { merge: true }).catch(() => {})
+            }), { merge: true }).catch(() => {})
           );
         }
       }
@@ -333,7 +351,7 @@ async function syncAllToFirestore(snapshot) {
     for (const s of snapshot.services) {
       if (s && s.id) {
         promises.push(
-          setDoc(doc(db, 'services', String(s.id)), s, { merge: true })
+          setDoc(doc(db, 'services', String(s.id)), sanitizeForFirestore(s), { merge: true })
             .catch(e => console.warn('Service write note:', e.message))
         );
       }

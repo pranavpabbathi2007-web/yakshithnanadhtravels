@@ -470,8 +470,9 @@ async function uploadImageToServer(file, folder = 'uploads') {
   const cleanBase = (file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '');
   const filename = `${Date.now()}_${cleanBase}`;
 
+  // Notify backend API for disk/memory fallback in node environments
   try {
-    const res = await fetch('/api/upload', {
+    fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -479,19 +480,12 @@ async function uploadImageToServer(file, folder = 'uploads') {
         image_data: compressed.dataUrl,
         folder: folder
       })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.success && data.url) {
-        return { url: data.url, dataUrl: compressed.dataUrl };
-      }
-    }
-  } catch (err) {
-    console.warn('API upload fallback note:', err.message);
-  }
+    }).catch(() => {});
+  } catch (err) {}
 
-  // Resilient fallback: return compressed dataUrl with zero network stall
-  return { url: compressed.dataUrl, dataUrl: compressed.dataUrl };
+  // Always return the permanent compressed Data URL as primary URL:
+  // Zero network latency, permanent, never 404s, works across Vercel & Firestore seamlessly
+  return { url: compressed.dataUrl, dataUrl: compressed.dataUrl, filename };
 }
 
 let currentStatusFilter = 'All';
@@ -1344,32 +1338,25 @@ async function loadServices(forceFetch = false) {
   const container = document.getElementById('servicesCardsContainer');
   if (!container) return;
 
-  if (forceFetch || !allServicesData) {
-  try {
-    const res = await fetch('/api/services');
-    if (res.ok) {
-      const data = await res.json();
-      allServicesData = data.services || [];
-      setStorage('services', allServicesData);
-    } else {
-      throw new Error('API offline');
-    }
-  } catch (err) {
+  if (forceFetch || !allServicesData || allServicesData.length === 0) {
     try {
-      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-      if (cloudRes.ok) {
-        const cData = await cloudRes.json();
-        if (cData && cData.services && cData.services.length > 0) {
-          allServicesData = cData.services;
-          setStorage('services', allServicesData);
-        }
+      const res = await fetch('/api/services');
+      if (res.ok) {
+        const data = await res.json();
+        allServicesData = data.services || [];
+        setStorage('services', allServicesData);
+      } else {
+        throw new Error('API offline');
       }
-    } catch (cErr) {}
-
-    if (!allServicesData || allServicesData.length === 0) {
-      allServicesData = getStorage('services', SEED_DATA.services);
+    } catch (err) {
+      if (!allServicesData || allServicesData.length === 0) {
+        allServicesData = getStorage('services', SEED_DATA.services);
+      }
     }
   }
+
+  if (!allServicesData || allServicesData.length === 0) {
+    allServicesData = getStorage('services', SEED_DATA.services);
   }
 
   container.innerHTML = allServicesData.map(s => {
@@ -1406,32 +1393,25 @@ async function loadFleet(forceFetch = false) {
   const container = document.getElementById('fleetCardsContainer');
   if (!container) return;
 
-  if (forceFetch || !allFleetData) {
-  try {
-    const res = await fetch('/api/fleet');
-    if (res.ok) {
-      const data = await res.json();
-      allFleetData = data.fleet || [];
-      setStorage('fleet', allFleetData);
-    } else {
-      throw new Error('API offline');
-    }
-  } catch (err) {
+  if (forceFetch || !allFleetData || allFleetData.length === 0) {
     try {
-      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-      if (cloudRes.ok) {
-        const cData = await cloudRes.json();
-        if (cData && cData.fleet && cData.fleet.length > 0) {
-          allFleetData = cData.fleet;
-          setStorage('fleet', allFleetData);
-        }
+      const res = await fetch('/api/fleet');
+      if (res.ok) {
+        const data = await res.json();
+        allFleetData = data.fleet || [];
+        setStorage('fleet', allFleetData);
+      } else {
+        throw new Error('API offline');
       }
-    } catch (cErr) {}
-
-    if (!allFleetData || allFleetData.length === 0) {
-      allFleetData = getStorage('fleet', SEED_DATA.fleet);
+    } catch (err) {
+      if (!allFleetData || allFleetData.length === 0) {
+        allFleetData = getStorage('fleet', SEED_DATA.fleet);
+      }
     }
   }
+
+  if (!allFleetData || allFleetData.length === 0) {
+    allFleetData = getStorage('fleet', SEED_DATA.fleet);
   }
 
   const defaultVehiclePhoto = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80';
@@ -1486,32 +1466,25 @@ async function loadDestinations(forceFetch = false) {
   const container = document.getElementById('destinationsCardsContainer');
   if (!container) return;
 
-  if (forceFetch || !allDestinationsData) {
-  try {
-    const res = await fetch('/api/destinations');
-    if (res.ok) {
-      const data = await res.json();
-      allDestinationsData = data.destinations || [];
-      setStorage('destinations', allDestinationsData);
-    } else {
-      throw new Error('API offline');
-    }
-  } catch (err) {
+  if (forceFetch || !allDestinationsData || allDestinationsData.length === 0) {
     try {
-      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-      if (cloudRes.ok) {
-        const cData = await cloudRes.json();
-        if (cData && cData.destinations && cData.destinations.length > 0) {
-          allDestinationsData = cData.destinations;
-          setStorage('destinations', allDestinationsData);
-        }
+      const res = await fetch('/api/destinations');
+      if (res.ok) {
+        const data = await res.json();
+        allDestinationsData = data.destinations || [];
+        setStorage('destinations', allDestinationsData);
+      } else {
+        throw new Error('API offline');
       }
-    } catch (cErr) {}
-
-    if (!allDestinationsData || allDestinationsData.length === 0) {
-      allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+    } catch (err) {
+      if (!allDestinationsData || allDestinationsData.length === 0) {
+        allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+      }
     }
   }
+
+  if (!allDestinationsData || allDestinationsData.length === 0) {
+    allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
   }
 
   const defaultDestPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
@@ -1556,35 +1529,28 @@ async function loadDestinations(forceFetch = false) {
 
 // 5b. Trips & Multi-Day Tour Packages
 async function loadTrips(forceFetch = false) {
-  const container = document.getElementById('tripsCardsContainer');
+  const container = document.getElementById('tripsCardsContainer') || document.getElementById('tripCardsContainer');
   if (!container) return;
 
-  if (forceFetch || !allTripsData) {
-  try {
-    const res = await fetch('/api/trips');
-    if (res.ok) {
-      const data = await res.json();
-      allTripsData = data.trips || [];
-      setStorage('trips', allTripsData);
-    } else {
-      throw new Error('API offline');
-    }
-  } catch (err) {
+  if (forceFetch || !allTripsData || allTripsData.length === 0) {
     try {
-      const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-      if (cloudRes.ok) {
-        const cData = await cloudRes.json();
-        if (cData && cData.trips && cData.trips.length > 0) {
-          allTripsData = cData.trips;
-          setStorage('trips', allTripsData);
-        }
+      const res = await fetch('/api/trips');
+      if (res.ok) {
+        const data = await res.json();
+        allTripsData = data.trips || [];
+        setStorage('trips', allTripsData);
+      } else {
+        throw new Error('API offline');
       }
-    } catch (cErr) {}
-
-    if (!allTripsData || allTripsData.length === 0) {
-      allTripsData = getStorage('trips', SEED_DATA.trips);
+    } catch (err) {
+      if (!allTripsData || allTripsData.length === 0) {
+        allTripsData = getStorage('trips', SEED_DATA.trips);
+      }
     }
   }
+
+  if (!allTripsData || allTripsData.length === 0) {
+    allTripsData = getStorage('trips', SEED_DATA.trips);
   }
 
   const countBadge = document.getElementById('tabTripsCount');
