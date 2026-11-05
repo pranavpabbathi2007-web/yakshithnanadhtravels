@@ -206,15 +206,20 @@ function serveStaticFile(req, res, rawPathname) {
  * Main Request Handler (Used for both Node.js HTTP server & Vercel Serverless Function)
  */
 async function handleRequest(req, res) {
-  let rawUrl = req.url || '/';
-  if (req.headers['x-forwarded-uri'] && req.headers['x-forwarded-uri'].startsWith('/api')) {
-    rawUrl = req.headers['x-forwarded-uri'];
-  } else if (req.headers['x-vercel-matched-path'] && req.headers['x-vercel-matched-path'].startsWith('/api')) {
+  let rawUrl = req.headers['x-invoke-path'] || req.headers['x-forwarded-uri'] || req.url || '/';
+  if (req.headers['x-vercel-matched-path'] && req.headers['x-vercel-matched-path'].startsWith('/api')) {
     rawUrl = req.headers['x-vercel-matched-path'];
   }
 
-  const parsedUrl = url.parse(rawUrl, true);
-  let pathname = parsedUrl.pathname || '/';
+  const parsedUrl = url.parse(req.url || '/', true);
+  let pathname = url.parse(rawUrl, true).pathname || '/';
+
+  // If Vercel rewrite passed __api_path parameter
+  if (parsedUrl.query && parsedUrl.query.__api_path) {
+    let sub = parsedUrl.query.__api_path.split('?')[0];
+    pathname = sub.startsWith('/') ? `/api${sub}` : `/api/${sub}`;
+  }
+
   // Normalize slashes
   pathname = pathname.replace(/\\/g, '/');
   const method = req.method.toUpperCase();
