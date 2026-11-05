@@ -131,14 +131,16 @@ function serveFileDirectly(res, targetPath) {
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     const isNoCache = ext === '.html' || ext === '.js' || ext === '.css' || ext === '';
     const cacheHeader = isNoCache
-      ? 'no-cache, must-revalidate'
+      ? 'no-cache, no-store, must-revalidate, max-age=0'
       : 'public, max-age=86400, stale-while-revalidate=604800';
 
     res.writeHead(200, {
       'Content-Type': contentType,
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
-      'Cache-Control': cacheHeader
+      'Cache-Control': cacheHeader,
+      'Pragma': isNoCache ? 'no-cache' : 'public',
+      'Expires': isNoCache ? '0' : '86400'
     });
     res.end(content);
   });
