@@ -377,7 +377,7 @@ async function handleRequest(req, res) {
   const serviceIdMatch = pathname.match(/^\/api\/services\/([0-9]+)$/);
   if (serviceIdMatch) {
     const id = parseInt(serviceIdMatch[1], 10);
-    if (method === 'PATCH') {
+    if (method === 'PATCH' || method === 'PUT') {
       try {
         const body = await parseRequestBody(req);
         const updated = db.updateService(id, body);
@@ -392,7 +392,7 @@ async function handleRequest(req, res) {
     }
   }
 
-  // 5. Vehicles Fleet: GET, POST, PATCH, DELETE /api/fleet
+  // 5. Vehicles Fleet: GET, POST, PATCH, PUT, DELETE /api/fleet
   if (pathname === '/api/fleet') {
     if (method === 'GET') {
       return sendJSON(res, 200, { success: true, fleet: db.getFleet() });
@@ -410,7 +410,7 @@ async function handleRequest(req, res) {
   const fleetIdMatch = pathname.match(/^\/api\/fleet\/([0-9]+)$/);
   if (fleetIdMatch) {
     const id = parseInt(fleetIdMatch[1], 10);
-    if (method === 'PATCH') {
+    if (method === 'PATCH' || method === 'PUT') {
       try {
         const body = await parseRequestBody(req);
         const updated = db.updateFleetVehicle(id, body);
@@ -425,7 +425,7 @@ async function handleRequest(req, res) {
     }
   }
 
-  // 6. Destinations: GET, POST, PATCH, DELETE /api/destinations
+  // 6. Destinations: GET, POST, PATCH, PUT, DELETE /api/destinations
   if (pathname === '/api/destinations') {
     if (method === 'GET') {
       return sendJSON(res, 200, { success: true, destinations: db.getAllDestinations() });
@@ -446,7 +446,7 @@ async function handleRequest(req, res) {
   const destIdMatch = pathname.match(/^\/api\/destinations\/([0-9]+)$/);
   if (destIdMatch) {
     const id = parseInt(destIdMatch[1], 10);
-    if (method === 'PATCH') {
+    if (method === 'PATCH' || method === 'PUT') {
       try {
         const body = await parseRequestBody(req);
         const updated = db.updateDestination(id, body);
@@ -461,7 +461,7 @@ async function handleRequest(req, res) {
     }
   }
 
-  // 6b. Trips & Tour Packages: GET, POST, PATCH, DELETE /api/trips
+  // 6b. Trips & Tour Packages: GET, POST, PATCH, PUT, DELETE /api/trips
   if (pathname === '/api/trips') {
     if (method === 'GET') {
       return sendJSON(res, 200, { success: true, trips: db.getAllTrips() });
@@ -482,7 +482,7 @@ async function handleRequest(req, res) {
   const tripIdMatch = pathname.match(/^\/api\/trips\/([0-9]+)$/);
   if (tripIdMatch) {
     const id = parseInt(tripIdMatch[1], 10);
-    if (method === 'PATCH') {
+    if (method === 'PATCH' || method === 'PUT') {
       try {
         const body = await parseRequestBody(req);
         const updated = db.updateTrip(id, body);
@@ -497,7 +497,7 @@ async function handleRequest(req, res) {
     }
   }
 
-  // 7. Contact Inquiries: GET, POST, PATCH, DELETE /api/contacts
+  // 7. Contact Inquiries: GET, POST, PATCH, PUT, DELETE /api/contacts
   if (pathname === '/api/contacts' && method === 'GET') {
     return sendJSON(res, 200, { success: true, contacts: db.getAllContactInquiries() });
   }
@@ -507,7 +507,7 @@ async function handleRequest(req, res) {
     db.deleteContactInquiry(id);
     return sendJSON(res, 200, { success: true, message: 'Contact inquiry deleted' });
   }
-  if (pathname === '/api/contact' && method === 'POST') {
+  if ((pathname === '/api/contact' || pathname === '/api/contacts') && method === 'POST') {
     try {
       const body = await parseRequestBody(req);
       if (!body.name || !body.phone || !body.message) {
@@ -524,7 +524,7 @@ async function handleRequest(req, res) {
     }
   }
   const contactIdMatch = pathname.match(/^\/api\/contacts\/([0-9]+)\/status$/);
-  if (contactIdMatch && method === 'PATCH') {
+  if (contactIdMatch && (method === 'PATCH' || method === 'PUT')) {
     try {
       const id = parseInt(contactIdMatch[1], 10);
       const body = await parseRequestBody(req);
@@ -604,7 +604,7 @@ async function handleRequest(req, res) {
 
   // Update status: /api/bookings/:id/status
   const statusMatch = pathname.match(/^\/api\/bookings\/([0-9]+)\/status$/);
-  if (statusMatch && method === 'PATCH') {
+  if (statusMatch && (method === 'PATCH' || method === 'PUT')) {
     try {
       const bookingId = parseInt(statusMatch[1], 10);
       const body = await parseRequestBody(req);
@@ -615,9 +615,9 @@ async function handleRequest(req, res) {
     }
   }
 
-  // Assign driver: /api/bookings/:id/assign
-  const assignMatch = pathname.match(/^\/api\/bookings\/([0-9]+)\/assign$/);
-  if (assignMatch && method === 'POST') {
+  // Assign driver: /api/bookings/:id/assign or /api/bookings/:id/driver
+  const assignMatch = pathname.match(/^\/api\/bookings\/([0-9]+)\/(assign|driver)$/);
+  if (assignMatch && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
     try {
       const bookingId = parseInt(assignMatch[1], 10);
       const body = await parseRequestBody(req);

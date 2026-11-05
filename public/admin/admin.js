@@ -673,7 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
         service_type: document.getElementById('nb_service').value,
         preferred_vehicle: document.getElementById('nb_vehicle').value,
         pickup_location: document.getElementById('nb_pickup').value.trim(),
-        destination: document.getElementById('nb_drop').value.trim(),
+        destination: ((document.getElementById('nb_destination') || document.getElementById('nb_drop'))?.value || '').trim(),
         travel_date: document.getElementById('nb_date').value,
         passenger_count: parseInt(document.getElementById('nb_passengers').value, 10) || 1,
         additional_notes: document.getElementById('nb_notes').value.trim()
@@ -1159,6 +1159,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await syncStateToFirebaseCloud();
       showAdminToast('✅ Brand and helpline settings updated live across all devices!');
+    });
+  }
+
+  // Message Status Modal Form
+  const messageStatusForm = document.getElementById('messageStatusForm');
+  if (messageStatusForm) {
+    messageStatusForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('msgStatusId').value;
+      const status = document.getElementById('msgNewStatusSelect').value;
+      try {
+        await fetch(`/api/contacts/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+      } catch (err) {}
+      window.closeMessageStatusModal();
+      loadMessages();
+      showAdminToast(`Inquiry #${id} marked as ${status}`);
+    });
+  }
+
+  // New Callback / Phone Inquiry Modal Form
+  const newCallbackForm = document.getElementById('newCallbackForm');
+  if (newCallbackForm) {
+    newCallbackForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('cb_name').value.trim(),
+        phone: document.getElementById('cb_phone').value.trim(),
+        email: document.getElementById('cb_email').value.trim(),
+        message: document.getElementById('cb_message').value.trim()
+      };
+      try {
+        await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {}
+      window.closeNewCallbackModal();
+      newCallbackForm.reset();
+      loadMessages();
+      showAdminToast('Customer inquiry recorded successfully!');
     });
   }
 });
@@ -1685,6 +1730,9 @@ async function loadMessages() {
       <td><span class="badge ${c.status === 'Resolved' ? 'badge-completed' : (c.status === 'Contacted' ? 'badge-assigned' : 'badge-pending')}">${escapeHTML(c.status || 'New')}</span></td>
       <td>
         <div class="action-btn-group">
+          <button type="button" class="action-icon-btn edit" title="Update Inquiry Status" onclick="openMessageStatusModal(${c.id}, '${escapeHTML(c.status || 'New')}')">
+            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
           <button type="button" class="action-icon-btn delete" title="Delete Inquiry" onclick="deleteContactRecord(${c.id})">
             <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
@@ -2079,6 +2127,26 @@ window.deleteDestinationRecord = async (id) => {
   } catch (err) {}
   await syncStateToFirebaseCloud();
   await loadDestinations(false);
+};
+
+window.openMessageStatusModal = (id, currentStatus) => {
+  const idEl = document.getElementById('msgStatusId');
+  const selEl = document.getElementById('msgNewStatusSelect');
+  const modal = document.getElementById('messageStatusModal');
+  if (idEl) idEl.value = id;
+  if (selEl) selEl.value = currentStatus || 'New';
+  if (modal) {
+    modal.classList.add('open');
+    modal.classList.add('active');
+  }
+};
+
+window.closeMessageStatusModal = () => {
+  const modal = document.getElementById('messageStatusModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+  }
 };
 
 window.deleteContactRecord = async (id) => {
