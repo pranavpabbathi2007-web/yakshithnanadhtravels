@@ -2078,16 +2078,15 @@ textarea.form-control {
   font-size: 0.86rem;
   color: var(--color-text-muted);
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
   text-align: center;
 }
 
 @media (min-width: 768px) {
   .footer-bottom-bar {
-    flex-direction: row;
-    justify-content: space-between;
+    justify-content: center;
+    text-align: center;
   }
 }
 
