@@ -226,10 +226,10 @@ const SEED_DATA = {
     {
       id: 1,
       name: 'Tirumala Sri Venkateswara Temple',
-      subtitle: 'Sacred Hill Shrine',
+      subtitle: 'Divine Hill Shrine',
       distance: '22 km',
       duration: '45 mins',
-      description: 'The revered abode of Lord Balaji atop the sacred Seven Hills of Seshachalam.',
+      description: 'The revered abode of Lord Balaji atop the divine Seven Hills of Seshachalam.',
       image_url: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80'
     },
     {
@@ -247,7 +247,7 @@ const SEED_DATA = {
       subtitle: 'Self-Manifested Swayambhu Ganesha',
       distance: '72 km',
       duration: '1.5 hrs',
-      description: 'A sacred water shrine where the historic Ganesha idol is known to grow continuously in size.',
+      description: 'A divine water shrine where the historic Ganesha idol is known to grow continuously in size.',
       image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
     },
     {
@@ -302,7 +302,7 @@ const SEED_DATA = {
       duration_days: '3 Days / 2 Nights',
       subtitle: 'Tirumala + Sri Kalahasti + Kanipakam + Sripuram Golden Temple (Vellore)',
       image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
-      itinerary: 'Day 1: Tirumala Hill Temple Balaji Darshan, Theertham tour, Kalyana Venkateswara Swamy Temple (Srinivasa Mangapuram).\nDay 2: Sacred Sri Kalahasteeswara Rahu-Ketu Puja Kshetra, Kapila Theertham water shrine & Tiruchanur Divine Mother darshan.\nDay 3: Swayambhu Varasiddhi Vinayaka Swamy (Kanipakam water shrine) -> Inter-state drive to Sripuram Golden Temple (Vellore, 1500kg gold leaf shrine) -> Return drop to Tirupati.',
+      itinerary: 'Day 1: Tirumala Hill Temple Balaji Darshan, Theertham tour, Kalyana Venkateswara Swamy Temple (Srinivasa Mangapuram).\nDay 2: Divine Sri Kalahasteeswara Rahu-Ketu Puja Kshetra, Kapila Theertham water shrine & Tiruchanur Divine Mother darshan.\nDay 3: Swayambhu Varasiddhi Vinayaka Swamy (Kanipakam water shrine) -> Inter-state drive to Sripuram Golden Temple (Vellore, 1500kg gold leaf shrine) -> Return drop to Tirupati.',
       vehicle_pricing: 'Sedan (Dzire / Etios): ₹8,499 | SUV (Innova): ₹12,499 | Luxury (Innova Crysta): ₹14,999 | Tempo (12 Seater): ₹20,999',
       inclusions: 'Tolls Included, Parkings Included, Driver Wage Included, State Border Tax (AP-TN) Included, 24*7 Support, Best Price Guaranteed',
       exclusions: 'Hotel stay, VIP Darshan passes, meals',

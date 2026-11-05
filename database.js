@@ -136,7 +136,7 @@ const DEFAULT_DESTINATIONS = [
     subtitle: 'Pancha Bhoota Vayu Linga Kshetra',
     distance: '38 km',
     duration: '~45 mins',
-    description: 'Sacred Rahu-Ketu Sarpa Dosha Nivarana Kshetra with magnificent monolithic Chola architecture on Swarnamukhi river.',
+    description: 'Divine Rahu-Ketu Sarpa Dosha Nivarana Kshetra with magnificent monolithic Chola architecture on Swarnamukhi river.',
     is_popular: 1,
     image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
   },
@@ -195,7 +195,7 @@ const DEFAULT_TRIPS = [
     duration_days: '3 Days / 2 Nights',
     subtitle: 'Tirumala + Sri Kalahasti + Kanipakam + Sripuram Golden Temple (Vellore)',
     image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
-    itinerary: 'Day 1: Tirumala Hill Temple Balaji Darshan, Theertham tour, Kalyana Venkateswara Swamy Temple (Srinivasa Mangapuram).\nDay 2: Sacred Sri Kalahasteeswara Rahu-Ketu Puja Kshetra, Kapila Theertham water shrine & Tiruchanur Divine Mother darshan.\nDay 3: Swayambhu Varasiddhi Vinayaka Swamy (Kanipakam water shrine) -> Inter-state drive to Sripuram Golden Temple (Vellore, 1500kg gold leaf shrine) -> Return drop to Tirupati.',
+    itinerary: 'Day 1: Tirumala Hill Temple Balaji Darshan, Theertham tour, Kalyana Venkateswara Swamy Temple (Srinivasa Mangapuram).\nDay 2: Divine Sri Kalahasteeswara Rahu-Ketu Puja Kshetra, Kapila Theertham water shrine & Tiruchanur Divine Mother darshan.\nDay 3: Swayambhu Varasiddhi Vinayaka Swamy (Kanipakam water shrine) -> Inter-state drive to Sripuram Golden Temple (Vellore, 1500kg gold leaf shrine) -> Return drop to Tirupati.',
     vehicle_pricing: 'Sedan (Dzire / Etios): ₹8,499 | SUV (Innova): ₹12,499 | Luxury (Innova Crysta): ₹14,999 | Tempo (12 Seater): ₹20,999',
     inclusions: 'Tolls Included, Parkings Included, Driver Wage Included, State Border Tax (AP-TN) Included, 24*7 Support, Best Price Guaranteed',
     exclusions: 'Hotel stay, VIP Darshan passes, meals',

@@ -793,7 +793,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         <div class="destination-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
           <div class="destination-img-box">
             <img src="${imgUrl}" alt="${d.name} - Yakshith Nandh Travels" class="destination-img" loading="lazy" onerror="this.src='${defaultDestImg}'">
-            <div class="destination-badge">${d.subtitle || 'Sacred Abode'}</div>
+            <div class="destination-badge">${d.subtitle || 'Divine Abode'}</div>
           </div>
           <div class="destination-info">
             <h3 class="destination-title">${d.name}</h3>
@@ -897,7 +897,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           </div>
           <div class="trip-card-body">
             <h3 class="trip-card-title">${t.title}</h3>
-            <div class="trip-card-subtitle">${t.subtitle || 'Sacred Pilgrimage Circuit'}</div>
+            <div class="trip-card-subtitle">${t.subtitle || 'Divine Pilgrimage Circuit'}</div>
 
             <div class="trip-itinerary-box">
               <div class="itinerary-heading">📍 Day-Wise Itinerary:</div>
