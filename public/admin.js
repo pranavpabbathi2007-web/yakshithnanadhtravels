@@ -14,21 +14,81 @@ import {
 const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
 
 async function syncStateToFirebaseCloud() {
+  const snapshot = {
+    fleet: allFleetData || [],
+    destinations: allDestinationsData || [],
+    trips: allTripsData || [],
+    services: allServicesData || [],
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Always keep local storage updated
+  setStorage('fleet', snapshot.fleet);
+  setStorage('destinations', snapshot.destinations);
+  setStorage('trips', snapshot.trips);
+  setStorage('services', snapshot.services);
+
+  // 2. Sync to API server memoryStore
   try {
-    const snapshot = {
-      fleet: allFleetData || [],
-      destinations: allDestinationsData || [],
-      trips: allTripsData || [],
-      services: allServicesData || [],
-      updated_at: new Date().toISOString()
-    };
+    await fetch('/api/sync-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(snapshot)
+    });
+  } catch (apiErr) {
+    console.warn('API sync-state note:', apiErr.message);
+  }
+
+  // 3. Sync to Firebase Cloud Storage (global single source of truth across all devices)
+  try {
     const jsonBlob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
     await uploadBytes(cloudRef, jsonBlob);
-    console.log('☁️ Synced updated data snapshot to Firebase Cloud Storage.');
+    console.log('☁️ Synced updated data snapshot to Firebase Cloud Storage & API.');
   } catch (err) {
     console.warn('Firebase Cloud sync note:', err.message);
   }
+}
+
+async function initAdminCloudState() {
+  try {
+    const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
+    const downloadUrl = await getDownloadURL(cloudRef);
+    if (downloadUrl) {
+      const res = await fetch(downloadUrl + '&cb=' + Date.now());
+      if (res.ok) {
+        const cData = await res.json();
+        if (cData) {
+          if (Array.isArray(cData.fleet)) {
+            allFleetData = cData.fleet;
+            setStorage('fleet', allFleetData);
+          }
+          if (Array.isArray(cData.destinations)) {
+            allDestinationsData = cData.destinations;
+            setStorage('destinations', allDestinationsData);
+          }
+          if (Array.isArray(cData.trips)) {
+            allTripsData = cData.trips;
+            setStorage('trips', allTripsData);
+          }
+          if (Array.isArray(cData.services)) {
+            allServicesData = cData.services;
+            setStorage('services', allServicesData);
+          }
+          console.log('✅ Loaded latest cloud state from Firebase Storage.');
+          return true;
+        }
+      }
+    }
+  } catch (err) {
+    console.log('No prior cloud state in Firebase Storage. Initializing baseline cloud state...');
+    allFleetData = getStorage('fleet', SEED_DATA.fleet);
+    allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+    allTripsData = getStorage('trips', SEED_DATA.trips);
+    allServicesData = getStorage('services', SEED_DATA.services);
+    await syncStateToFirebaseCloud();
+  }
+  return false;
 }
 
 // ==========================================================================
@@ -655,28 +715,37 @@ document.addEventListener('DOMContentLoaded', () => {
         is_available: 1
       };
 
+      // 1. Immediately update allFleetData & localStorage
+      if (!allFleetData || allFleetData.length === 0) {
+        allFleetData = getStorage('fleet', SEED_DATA.fleet);
+      }
+      if (id) {
+        payload.id = parseInt(id, 10);
+        const idx = allFleetData.findIndex(v => String(v.id) === String(id));
+        if (idx !== -1) {
+          allFleetData[idx] = { ...allFleetData[idx], ...payload };
+        } else {
+          allFleetData.push(payload);
+        }
+      } else {
+        payload.id = Date.now();
+        allFleetData.push(payload);
+      }
+      setStorage('fleet', allFleetData);
+
+      // 2. Call API
       try {
         const url = id ? `/api/fleet/${id}` : '/api/fleet';
         const method = id ? 'PATCH' : 'POST';
-        const res = await fetch(url, {
+        await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('API offline');
-      } catch (err) {
-        const fleet = getStorage('fleet', SEED_DATA.fleet);
-        if (id) {
-          const idx = fleet.findIndex(v => String(v.id) === String(id));
-          if (idx !== -1) {
-            fleet[idx] = { ...fleet[idx], ...payload };
-          }
-        } else {
-          payload.id = Date.now();
-          fleet.push(payload);
-        }
-        setStorage('fleet', fleet);
-      }
+      } catch (err) {}
+
+      // 3. Immediately sync to Firebase Cloud Storage and server memoryStore
+      await syncStateToFirebaseCloud();
 
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -684,8 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       window.closeVehicleModal();
-      await loadFleet();
-      syncStateToFirebaseCloud();
+      await loadFleet(false);
       alert(id ? 'Vehicle updated successfully!' : 'Vehicle added to fleet!');
     });
   }
@@ -762,30 +830,36 @@ document.addEventListener('DOMContentLoaded', () => {
         image_url: imageUrl
       };
 
+      if (!allDestinationsData || allDestinationsData.length === 0) {
+        allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+      }
+      if (id) {
+        payload.id = parseInt(id, 10);
+        const idx = allDestinationsData.findIndex(d => String(d.id) === String(id));
+        if (idx !== -1) {
+          allDestinationsData[idx] = { ...allDestinationsData[idx], ...payload };
+        } else {
+          allDestinationsData.push(payload);
+        }
+      } else {
+        payload.id = Date.now();
+        allDestinationsData.push(payload);
+      }
+      setStorage('destinations', allDestinationsData);
+
       try {
         const url = id ? `/api/destinations/${id}` : '/api/destinations';
         const method = id ? 'PATCH' : 'POST';
-        const res = await fetch(url, {
+        await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('API offline');
-      } catch (err) {
-        const dests = getStorage('destinations', SEED_DATA.destinations);
-        if (id) {
-          const idx = dests.findIndex(d => String(d.id) === String(id));
-          if (idx !== -1) dests[idx] = { ...dests[idx], ...payload };
-        } else {
-          payload.id = Date.now();
-          dests.push(payload);
-        }
-        setStorage('destinations', dests);
-      }
+      } catch (err) {}
 
+      await syncStateToFirebaseCloud();
       window.closeDestinationModal();
-      await loadDestinations();
-      syncStateToFirebaseCloud();
+      await loadDestinations(false);
       alert(id ? 'Destination updated successfully!' : 'Destination added successfully!');
     });
   }
@@ -869,26 +943,34 @@ document.addEventListener('DOMContentLoaded', () => {
         is_popular: 1
       };
 
+      if (!allTripsData || allTripsData.length === 0) {
+        allTripsData = getStorage('trips', SEED_DATA.trips);
+      }
+      if (id) {
+        payload.id = parseInt(id, 10);
+        const idx = allTripsData.findIndex(t => String(t.id) === String(id));
+        if (idx !== -1) {
+          allTripsData[idx] = { ...allTripsData[idx], ...payload };
+        } else {
+          allTripsData.push(payload);
+        }
+      } else {
+        payload.id = Date.now();
+        allTripsData.push(payload);
+      }
+      setStorage('trips', allTripsData);
+
       try {
         const url = id ? `/api/trips/${id}` : '/api/trips';
         const method = id ? 'PATCH' : 'POST';
-        const res = await fetch(url, {
+        await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('API offline');
-      } catch (err) {
-        const trips = getStorage('trips', SEED_DATA.trips);
-        if (id) {
-          const idx = trips.findIndex(t => String(t.id) === String(id));
-          if (idx !== -1) trips[idx] = { ...trips[idx], ...payload };
-        } else {
-          payload.id = Date.now();
-          trips.push(payload);
-        }
-        setStorage('trips', trips);
-      }
+      } catch (err) {}
+
+      await syncStateToFirebaseCloud();
 
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -896,8 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       window.closeTripModal();
-      await loadTrips();
-      syncStateToFirebaseCloud();
+      await loadTrips(false);
       alert(id ? 'Trip package updated successfully!' : 'Trip package created successfully!');
     });
   }
@@ -914,30 +995,36 @@ document.addEventListener('DOMContentLoaded', () => {
         features: document.getElementById('editServiceFeatures').value.trim()
       };
 
+      if (!allServicesData || allServicesData.length === 0) {
+        allServicesData = getStorage('services', SEED_DATA.services);
+      }
+      if (id) {
+        payload.id = parseInt(id, 10);
+        const idx = allServicesData.findIndex(s => String(s.id) === String(id));
+        if (idx !== -1) {
+          allServicesData[idx] = { ...allServicesData[idx], ...payload };
+        } else {
+          allServicesData.push(payload);
+        }
+      } else {
+        payload.id = Date.now();
+        allServicesData.push(payload);
+      }
+      setStorage('services', allServicesData);
+
       try {
         const url = id ? `/api/services/${id}` : '/api/services';
         const method = id ? 'PATCH' : 'POST';
-        const res = await fetch(url, {
+        await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('API offline');
-      } catch (err) {
-        const services = getStorage('services', SEED_DATA.services);
-        if (id) {
-          const idx = services.findIndex(s => String(s.id) === String(id));
-          if (idx !== -1) services[idx] = { ...services[idx], ...payload };
-        } else {
-          payload.id = Date.now();
-          services.push(payload);
-        }
-        setStorage('services', services);
-      }
+      } catch (err) {}
 
+      await syncStateToFirebaseCloud();
       window.closeServiceEditModal();
-      await loadServices();
-      syncStateToFirebaseCloud();
+      await loadServices(false);
       alert(id ? 'Service updated!' : 'Service created!');
     });
   }
@@ -956,18 +1043,17 @@ document.addEventListener('DOMContentLoaded', () => {
         announcement: document.getElementById('set_announcement').value.trim()
       };
 
+      setStorage('settings', payload);
       try {
-        const res = await fetch('/api/settings', {
+        await fetch('/api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('API offline');
-      } catch (err) {
-        setStorage('settings', payload);
-      }
+      } catch (err) {}
 
-      alert('Settings saved successfully!');
+      await syncStateToFirebaseCloud();
+      alert('Brand and helpline settings updated across all devices!');
     });
   }
 });
@@ -977,6 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 
 async function loadAllData() {
+  await initAdminCloudState();
   await Promise.allSettled([
     loadStats(),
     loadBookings(),
@@ -1146,10 +1233,11 @@ async function loadBookings() {
 }
 
 // 3. Services Cards
-async function loadServices() {
+async function loadServices(forceFetch = false) {
   const container = document.getElementById('servicesCardsContainer');
   if (!container) return;
 
+  if (forceFetch || !allServicesData) {
   try {
     const res = await fetch('/api/services');
     if (res.ok) {
@@ -1175,6 +1263,7 @@ async function loadServices() {
       allServicesData = getStorage('services', SEED_DATA.services);
     }
   }
+  }
 
   container.innerHTML = allServicesData.map(s => `
     <div class="admin-content-card">
@@ -1198,10 +1287,11 @@ async function loadServices() {
 }
 
 // 4. Fleet Section Cards (Shows every vehicle data, car photo, Airbags option, text seats)
-async function loadFleet() {
+async function loadFleet(forceFetch = false) {
   const container = document.getElementById('fleetCardsContainer');
   if (!container) return;
 
+  if (forceFetch || !allFleetData) {
   try {
     const res = await fetch('/api/fleet');
     if (res.ok) {
@@ -1226,6 +1316,7 @@ async function loadFleet() {
     if (!allFleetData || allFleetData.length === 0) {
       allFleetData = getStorage('fleet', SEED_DATA.fleet);
     }
+  }
   }
 
   const defaultVehiclePhoto = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80';
@@ -1273,10 +1364,11 @@ async function loadFleet() {
 }
 
 // 5. Destinations Cards (Shows destination photo banner, distance & details)
-async function loadDestinations() {
+async function loadDestinations(forceFetch = false) {
   const container = document.getElementById('destinationsCardsContainer');
   if (!container) return;
 
+  if (forceFetch || !allDestinationsData) {
   try {
     const res = await fetch('/api/destinations');
     if (res.ok) {
@@ -1301,6 +1393,7 @@ async function loadDestinations() {
     if (!allDestinationsData || allDestinationsData.length === 0) {
       allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
     }
+  }
   }
 
   const defaultDestPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
@@ -1343,10 +1436,11 @@ async function loadDestinations() {
 }
 
 // 5b. Trips & Multi-Day Tour Packages
-async function loadTrips() {
+async function loadTrips(forceFetch = false) {
   const container = document.getElementById('tripsCardsContainer');
   if (!container) return;
 
+  if (forceFetch || !allTripsData) {
   try {
     const res = await fetch('/api/trips');
     if (res.ok) {
@@ -1371,6 +1465,7 @@ async function loadTrips() {
     if (!allTripsData || allTripsData.length === 0) {
       allTripsData = getStorage('trips', SEED_DATA.trips);
     }
+  }
   }
 
   const countBadge = document.getElementById('tabTripsCount');
@@ -1705,14 +1800,13 @@ window.closeTripModal = () => document.getElementById('tripModal').classList.rem
 
 window.deleteTripRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this trip package?')) return;
+  allTripsData = (allTripsData || getStorage('trips', SEED_DATA.trips)).filter(t => String(t.id) !== String(id));
+  setStorage('trips', allTripsData);
   try {
-    const res = await fetch(`/api/trips/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('API offline');
-  } catch (err) {
-    allTripsData = allTripsData.filter(t => t.id !== id);
-    setStorage('trips', allTripsData);
-  }
-  loadTrips();
+    await fetch(`/api/trips/${id}`, { method: 'DELETE' });
+  } catch (err) {}
+  await syncStateToFirebaseCloud();
+  await loadTrips(false);
 };
 
 window.openNewCallbackModal = () => {
@@ -1722,51 +1816,46 @@ window.closeNewCallbackModal = () => document.getElementById('newCallbackModal')
 
 window.deleteBookingRecord = async (id) => {
   if (!confirm(`Delete booking record #${id}?`)) return;
+  const bookings = getStorage('bookings', SEED_DATA.bookings).filter(b => String(b.id) !== String(id));
+  setStorage('bookings', bookings);
   try {
-    const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('API offline');
-  } catch (err) {
-    const bookings = getStorage('bookings', SEED_DATA.bookings).filter(b => String(b.id) !== String(id));
-    setStorage('bookings', bookings);
-  }
+    await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
+  } catch (err) {}
   loadStats();
   loadBookings();
 };
 
 window.deleteVehicleRecord = async (id) => {
   if (!confirm('Are you sure you want to remove this vehicle from fleet?')) return;
+  allFleetData = (allFleetData || getStorage('fleet', SEED_DATA.fleet)).filter(v => String(v.id) !== String(id));
+  setStorage('fleet', allFleetData);
   try {
-    const res = await fetch(`/api/fleet/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('API offline');
-  } catch (err) {
-    const fleet = getStorage('fleet', SEED_DATA.fleet).filter(v => String(v.id) !== String(id));
-    setStorage('fleet', fleet);
-  }
-  loadFleet();
+    await fetch(`/api/fleet/${id}`, { method: 'DELETE' });
+  } catch (err) {}
+  await syncStateToFirebaseCloud();
+  await loadFleet(false);
 };
 
 window.deleteServiceRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this service offering?')) return;
+  allServicesData = (allServicesData || getStorage('services', SEED_DATA.services)).filter(s => String(s.id) !== String(id));
+  setStorage('services', allServicesData);
   try {
-    const res = await fetch(`/api/services/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('API offline');
-  } catch (err) {
-    const services = getStorage('services', SEED_DATA.services).filter(s => String(s.id) !== String(id));
-    setStorage('services', services);
-  }
-  loadServices();
+    await fetch(`/api/services/${id}`, { method: 'DELETE' });
+  } catch (err) {}
+  await syncStateToFirebaseCloud();
+  await loadServices(false);
 };
 
 window.deleteDestinationRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this destination?')) return;
+  allDestinationsData = (allDestinationsData || getStorage('destinations', SEED_DATA.destinations)).filter(d => String(d.id) !== String(id));
+  setStorage('destinations', allDestinationsData);
   try {
-    const res = await fetch(`/api/destinations/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('API offline');
-  } catch (err) {
-    const dests = getStorage('destinations', SEED_DATA.destinations).filter(d => String(d.id) !== String(id));
-    setStorage('destinations', dests);
-  }
-  loadDestinations();
+    await fetch(`/api/destinations/${id}`, { method: 'DELETE' });
+  } catch (err) {}
+  await syncStateToFirebaseCloud();
+  await loadDestinations(false);
 };
 
 window.deleteContactRecord = async (id) => {

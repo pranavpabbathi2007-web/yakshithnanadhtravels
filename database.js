@@ -1272,6 +1272,25 @@ function getFullSnapshot() {
   };
 }
 
+function setFullState(data) {
+  if (data.fleet && Array.isArray(data.fleet)) {
+    memoryStore.fleet = JSON.parse(JSON.stringify(data.fleet));
+  }
+  if (data.destinations && Array.isArray(data.destinations)) {
+    memoryStore.destinations = JSON.parse(JSON.stringify(data.destinations));
+  }
+  if (data.trips && Array.isArray(data.trips)) {
+    memoryStore.trips = JSON.parse(JSON.stringify(data.trips));
+  }
+  if (data.services && Array.isArray(data.services)) {
+    memoryStore.services = JSON.parse(JSON.stringify(data.services));
+  }
+  if (data.settings && typeof data.settings === 'object') {
+    memoryStore.settings = { ...memoryStore.settings, ...data.settings };
+  }
+  return getFullSnapshot();
+}
+
 module.exports = {
   createBooking,
   getBookingById,
@@ -1304,5 +1323,6 @@ module.exports = {
   deleteContactInquiry,
   getSettings,
   updateSettings,
-  getFullSnapshot
+  getFullSnapshot,
+  setFullState
 };

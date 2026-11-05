@@ -508,28 +508,20 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
   // 11. Live Webpage Data Synchronization (Backend to Frontend)
   const syncLiveWebpageData = async () => {
     try {
-      // Sync Brand Settings
-      const settingsRes = await fetch('/api/settings');
-      if (settingsRes.ok) {
-        const data = await settingsRes.json();
-        const s = data.settings || {};
+      const cloud = await fetchGlobalCloudData();
+      if (cloud && cloud.settings) {
+        const s = cloud.settings;
         if (s.slogan) {
-          const sloganElements = document.querySelectorAll('.hero-slogan-box span:last-child, .footer-slogan');
-          sloganElements.forEach(el => { el.textContent = `"${s.slogan}"`; });
+          document.querySelectorAll('.hero-slogan-box span:last-child, .footer-slogan').forEach(el => { el.textContent = `"${s.slogan}"`; });
         }
         if (s.announcement) {
           const annEl = document.querySelector('.top-bar-pill');
           if (annEl) annEl.textContent = s.announcement;
         }
       }
-
-      // Sync Services Data
-      const servicesRes = await fetch('/api/services');
-      if (servicesRes.ok) {
-        const sData = await servicesRes.json();
-        const services = sData.services || [];
+      if (cloud && Array.isArray(cloud.services)) {
         const serviceCards = document.querySelectorAll('.service-card');
-        services.forEach((s, idx) => {
+        cloud.services.forEach((s, idx) => {
           if (serviceCards[idx]) {
             const titleEl = serviceCards[idx].querySelector('.service-title');
             const descEl = serviceCards[idx].querySelector('.service-desc');
@@ -539,7 +531,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         });
       }
     } catch (e) {
-      // Graceful offline fallback
+      // Graceful fallback
     }
   };
 
@@ -619,33 +611,85 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
 
   const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
 
-  // Dynamic Fleet Loader (Loads custom vehicle additions from API or LocalStorage)
+  let globalCloudData = null;
+  const fetchGlobalCloudData = async () => {
+    if (globalCloudData) return globalCloudData;
+
+    // 1. Direct fetch from Firebase Cloud Storage with cache-buster
+    try {
+      const res = await fetch(FIREBASE_CLOUD_DATA_URL + '&cb=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        globalCloudData = await res.json();
+        if (globalCloudData) {
+          if (Array.isArray(globalCloudData.fleet)) localStorage.setItem('ynt_fleet', JSON.stringify(globalCloudData.fleet));
+          if (Array.isArray(globalCloudData.destinations)) localStorage.setItem('ynt_destinations', JSON.stringify(globalCloudData.destinations));
+          if (Array.isArray(globalCloudData.trips)) localStorage.setItem('ynt_trips', JSON.stringify(globalCloudData.trips));
+          if (Array.isArray(globalCloudData.services)) localStorage.setItem('ynt_services', JSON.stringify(globalCloudData.services));
+          return globalCloudData;
+        }
+      }
+    } catch (e) {}
+
+    // 2. Dynamic Firebase Storage SDK fetch
+    try {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+      const { getStorage, ref, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
+      const app = initializeApp({
+        apiKey: "AIzaSyCVSV9cHimnG2PoACuwONHQlfJWx0iTpeQ",
+        projectId: "yakshithnandhtravels",
+        storageBucket: "yakshithnandhtravels.firebasestorage.app"
+      }, 'ClientSyncViewer_' + Math.random().toString(36).substring(7));
+      const storage = getStorage(app);
+      const url = await getDownloadURL(ref(storage, 'cloud_state/travels_data.json'));
+      if (url) {
+        const res = await fetch(url + '&cb=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+          globalCloudData = await res.json();
+          if (globalCloudData) {
+            if (Array.isArray(globalCloudData.fleet)) localStorage.setItem('ynt_fleet', JSON.stringify(globalCloudData.fleet));
+            if (Array.isArray(globalCloudData.destinations)) localStorage.setItem('ynt_destinations', JSON.stringify(globalCloudData.destinations));
+            if (Array.isArray(globalCloudData.trips)) localStorage.setItem('ynt_trips', JSON.stringify(globalCloudData.trips));
+            if (Array.isArray(globalCloudData.services)) localStorage.setItem('ynt_services', JSON.stringify(globalCloudData.services));
+            return globalCloudData;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 3. Fall back to API snapshot
+    try {
+      const apiRes = await fetch('/api/snapshot', { cache: 'no-store' });
+      if (apiRes.ok) {
+        const s = await apiRes.json();
+        if (s && s.success) {
+          globalCloudData = s;
+          return globalCloudData;
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  };
+
+  // Dynamic Fleet Loader (Loads custom vehicle additions from Firebase Cloud or API)
   const loadWebsiteFleet = async () => {
     const grid = document.querySelector('.vehicles-grid');
     if (!grid) return;
 
     let fleet = null;
     try {
-      const res = await fetch('/api/fleet');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.fleet && data.fleet.length > 0) {
-          fleet = data.fleet;
-          try { localStorage.setItem('ynt_fleet', JSON.stringify(fleet)); } catch(e) {}
-        }
+      const cloud = await fetchGlobalCloudData();
+      if (cloud && Array.isArray(cloud.fleet)) {
+        fleet = cloud.fleet;
       }
     } catch (e) {}
 
-    // Cloud fallback if API had network issue
     if (!fleet) {
       try {
-        const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-        if (cloudRes.ok) {
-          const cData = await cloudRes.json();
-          if (cData && cData.fleet && cData.fleet.length > 0) {
-            fleet = cData.fleet;
-            try { localStorage.setItem('ynt_fleet', JSON.stringify(fleet)); } catch(e) {}
-          }
+        const res = await fetch('/api/fleet');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.fleet) fleet = data.fleet;
         }
       } catch (e) {}
     }
@@ -653,14 +697,16 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     if (!fleet) {
       try {
         const stored = localStorage.getItem('ynt_fleet');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) fleet = parsed;
-        }
+        if (stored) fleet = JSON.parse(stored);
       } catch (e) {}
     }
 
-    if (!fleet || fleet.length === 0) return;
+    if (!fleet || !Array.isArray(fleet)) return;
+
+    if (fleet.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--color-text-muted); font-size:1.1rem;">Fleet updates in progress. Please contact our 24/7 helpline for available cabs.</div>';
+      return;
+    }
 
     const defaultImg = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80';
     grid.innerHTML = fleet.map((v, idx) => {
@@ -715,26 +761,18 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
 
     let dests = null;
     try {
-      const res = await fetch('/api/destinations');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.destinations && data.destinations.length > 0) {
-          dests = data.destinations;
-          try { localStorage.setItem('ynt_destinations', JSON.stringify(dests)); } catch(e) {}
-        }
+      const cloud = await fetchGlobalCloudData();
+      if (cloud && Array.isArray(cloud.destinations)) {
+        dests = cloud.destinations;
       }
     } catch (e) {}
 
-    // Cloud fallback if API had network issue
     if (!dests) {
       try {
-        const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-        if (cloudRes.ok) {
-          const cData = await cloudRes.json();
-          if (cData && cData.destinations && cData.destinations.length > 0) {
-            dests = cData.destinations;
-            try { localStorage.setItem('ynt_destinations', JSON.stringify(dests)); } catch(e) {}
-          }
+        const res = await fetch('/api/destinations');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.destinations) dests = data.destinations;
         }
       } catch (e) {}
     }
@@ -742,14 +780,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     if (!dests) {
       try {
         const stored = localStorage.getItem('ynt_destinations');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) dests = parsed;
-        }
+        if (stored) dests = JSON.parse(stored);
       } catch (e) {}
     }
 
-    if (!dests || dests.length === 0) return;
+    if (!dests || !Array.isArray(dests) || dests.length === 0) return;
 
     const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
     grid.innerHTML = dests.map((d, idx) => {
@@ -786,26 +821,18 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
 
     let trips = null;
     try {
-      const res = await fetch('/api/trips');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.trips && data.trips.length > 0) {
-          trips = data.trips;
-          try { localStorage.setItem('ynt_trips', JSON.stringify(trips)); } catch(e) {}
-        }
+      const cloud = await fetchGlobalCloudData();
+      if (cloud && Array.isArray(cloud.trips)) {
+        trips = cloud.trips;
       }
     } catch (e) {}
 
-    // Cloud fallback if API had network issue
     if (!trips) {
       try {
-        const cloudRes = await fetch(FIREBASE_CLOUD_DATA_URL);
-        if (cloudRes.ok) {
-          const cData = await cloudRes.json();
-          if (cData && cData.trips && cData.trips.length > 0) {
-            trips = cData.trips;
-            try { localStorage.setItem('ynt_trips', JSON.stringify(trips)); } catch(e) {}
-          }
+        const res = await fetch('/api/trips');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.trips) trips = data.trips;
         }
       } catch (e) {}
     }
@@ -813,14 +840,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     if (!trips) {
       try {
         const stored = localStorage.getItem('ynt_trips');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) trips = parsed;
-        }
+        if (stored) trips = JSON.parse(stored);
       } catch (e) {}
     }
 
-    if (!trips || trips.length === 0) return;
+    if (!trips || !Array.isArray(trips) || trips.length === 0) return;
 
     const defaultTripImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
     grid.innerHTML = trips.map((t, idx) => {

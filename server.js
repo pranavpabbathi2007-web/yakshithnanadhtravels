@@ -638,6 +638,17 @@ async function handleRequest(req, res) {
     }
   }
 
+  // Bulk State Synchronization endpoint (Updates memoryStore across all serverless requests)
+  if (pathname === '/api/sync-state' && method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const snapshot = db.setFullState(body);
+      return sendJSON(res, 200, { success: true, message: 'State synchronized', snapshot });
+    } catch (err) {
+      return sendJSON(res, 500, { success: false, error: err.message });
+    }
+  }
+
   // ==========================================================================
   // FALLTHROUGH: SERVE STATIC ASSETS (HTML, CSS, JS, IMAGES)
   // ==========================================================================
