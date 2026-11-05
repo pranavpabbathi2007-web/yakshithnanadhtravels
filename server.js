@@ -41,7 +41,7 @@ function sendJSON(res, statusCode, data) {
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
   });
-  res.end(JSON.stringify(data, null, 2));
+  res.end(JSON.stringify(data));
 }
 
 /**
@@ -129,12 +129,16 @@ function serveFileDirectly(res, targetPath) {
 
     const ext = path.extname(targetPath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const isHtml = ext === '.html' || ext === '';
+    const cacheHeader = isHtml
+      ? 'no-cache, must-revalidate'
+      : 'public, max-age=86400, stale-while-revalidate=604800';
 
     res.writeHead(200, {
       'Content-Type': contentType,
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+      'Cache-Control': cacheHeader
     });
     res.end(content);
   });

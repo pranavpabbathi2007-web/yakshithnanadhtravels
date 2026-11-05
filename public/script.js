@@ -26,47 +26,55 @@ document.addEventListener('DOMContentLoaded', () => {
     travelDateInput.setAttribute('min', today);
   }
 
-  // 3. Sticky Navigation & Scroll Spy
+  // 3. High-Performance Sticky Navigation & Scroll Spy (rAF throttled)
+  const sections = Array.from(document.querySelectorAll('section[id]'));
+  let scrollTicking = false;
+
   const handleScroll = () => {
     const scrollY = window.scrollY;
 
-    // Header sticky shadow
+    // Header sticky shadow (only modify DOM when state changes)
     if (scrollY > 50) {
-      header.classList.add('scrolled');
+      if (!header.classList.contains('scrolled')) header.classList.add('scrolled');
     } else {
-      header.classList.remove('scrolled');
+      if (header.classList.contains('scrolled')) header.classList.remove('scrolled');
     }
 
-    // Back to top button visibility
+    // Back to top button visibility (only modify DOM when state changes)
     if (backToTopBtn) {
       if (scrollY > 400) {
-        backToTopBtn.classList.add('visible');
+        if (!backToTopBtn.classList.contains('visible')) backToTopBtn.classList.add('visible');
       } else {
-        backToTopBtn.classList.remove('visible');
+        if (backToTopBtn.classList.contains('visible')) backToTopBtn.classList.remove('visible');
       }
     }
 
-    // ScrollSpy active link detection
-    const sections = document.querySelectorAll('section[id]');
+    // ScrollSpy active link detection (Reverse check, minimal reflow)
     let currentSectionId = '';
-
-    sections.forEach(section => {
-      const sectionTop = section.offsetTop - 120;
-      const sectionHeight = section.offsetHeight;
-      if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
-        currentSectionId = section.getAttribute('id');
+    for (let i = sections.length - 1; i >= 0; i--) {
+      const s = sections[i];
+      if (scrollY >= s.offsetTop - 140) {
+        currentSectionId = s.id;
+        break;
       }
-    });
+    }
 
-    navLinks.forEach(link => {
-      link.classList.remove('active');
-      if (link.getAttribute('href') === `#${currentSectionId}`) {
-        link.classList.add('active');
-      }
-    });
+    if (currentSectionId) {
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === `#${currentSectionId}`);
+      });
+    }
   };
 
-  window.addEventListener('scroll', handleScroll, { passive: true });
+  window.addEventListener('scroll', () => {
+    if (!scrollTicking) {
+      window.requestAnimationFrame(() => {
+        handleScroll();
+        scrollTicking = false;
+      });
+      scrollTicking = true;
+    }
+  }, { passive: true });
   handleScroll(); // Initial check
 
   // 4. Mobile Menu Toggle
@@ -527,14 +535,21 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
   const applyWebsiteData = (data) => {
     if (!data || typeof data !== 'object') return;
 
-    // Fast change detection to avoid unnecessary DOM thrashing
+    // Deep content signature (excludes volatile timestamps like updated_at to prevent DOM thrashing)
     const currentHash = JSON.stringify({
-      s: data.settings,
-      f: (data.fleet || []).length,
-      d: (data.destinations || []).length,
-      t: (data.trips || []).length,
-      v: (data.services || []).length,
-      u: data.updated_at
+      s: data.settings ? {
+        c: data.settings.company_name,
+        p: data.settings.primary_phone,
+        p2: data.settings.secondary_phone,
+        sl: data.settings.slogan,
+        an: data.settings.announcement,
+        em: data.settings.email,
+        l: data.settings.location
+      } : null,
+      f: (data.fleet || []).map(v => `${v.id}:${v.is_published}:${v.is_available}:${v.model_name}:${v.daily_rent}:${v.rate_per_km}:${v.image_url}`).join('|'),
+      d: (data.destinations || []).map(d => `${d.id}:${d.is_published}:${d.is_popular}:${d.name}:${d.subtitle}:${d.image_url}`).join('|'),
+      t: (data.trips || []).map(t => `${t.id}:${t.is_published}:${t.is_popular}:${t.title}:${t.starting_price}:${t.image_url}`).join('|'),
+      v: (data.services || []).map(s => `${s.id}:${s.is_published}:${s.is_active}:${s.name}:${s.starting_price}`).join('|')
     });
     if (currentHash === lastAppliedSnapshotHash) return;
     lastAppliedSnapshotHash = currentHash;
@@ -861,25 +876,34 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
   // ==========================================================================
   // RESILIENT BACKGROUND REVALIDATION POLLING (Zero Missed Updates)
   // ==========================================================================
+  let isFetchingSnapshot = false;
   const fetchLatestSnapshot = async () => {
+    if (isFetchingSnapshot) return;
+    isFetchingSnapshot = true;
     try {
-      const res = await fetch('/api/snapshot?ts=' + Date.now(), { cache: 'no-store' });
+      const res = await fetch('/api/snapshot', { cache: 'default' });
       if (res.ok) {
         const snapshot = await res.json();
         if (snapshot && snapshot.success) {
           applyWebsiteData(snapshot);
         }
       }
-    } catch (e) {}
+    } catch (e) {} finally {
+      isFetchingSnapshot = false;
+    }
   };
 
-  // Immediate initial fetch
+  // Immediate initial hydration check
   fetchLatestSnapshot();
 
-  // Periodic polling every 3.5 seconds
-  setInterval(fetchLatestSnapshot, 3500);
+  // Periodic heartbeat polling: every 20s when tab is active (preserves CPU & mobile data)
+  setInterval(() => {
+    if (!document.hidden) {
+      fetchLatestSnapshot();
+    }
+  }, 20000);
 
-  // Auto-revalidate whenever tab or window regains focus
+  // Auto-revalidate immediately whenever tab or window regains focus
   window.addEventListener('focus', fetchLatestSnapshot);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) fetchLatestSnapshot();
