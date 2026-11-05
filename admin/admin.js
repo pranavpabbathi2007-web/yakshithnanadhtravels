@@ -1,10 +1,18 @@
 /**
  * YAKSHITH NANDH TRAVELS - Admin Master Console Logic
  * Complete control over every section of the website
- * Equipped with Client-side Image Optimization & Firebase Cloud Storage
+ * Equipped with Cloud Firestore Real-time Sync & Firebase Cloud Storage
  */
 
-import { storage } from './firebase-config.js';
+import {
+  db,
+  storage,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot
+} from './firebase-config.js';
 import {
   ref as storageRef,
   uploadBytes,
@@ -13,12 +21,32 @@ import {
 
 const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
 
+function showAdminToast(msg) {
+  let toast = document.getElementById('adminGlobalToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'adminGlobalToast';
+    toast.style.cssText = 'position:fixed; bottom:24px; right:24px; background:#7B263A; color:#FFF9F0; border:1.5px solid #C49A52; padding:12px 22px; border-radius:10px; font-size:0.92rem; font-weight:700; z-index:999999; box-shadow:0 8px 24px rgba(0,0,0,0.35); transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform:translateY(100px); opacity:0; pointer-events:none; display:flex; align-items:center; gap:8px;';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = msg;
+  toast.style.transform = 'translateY(0)';
+  toast.style.opacity = '1';
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => {
+    toast.style.transform = 'translateY(100px)';
+    toast.style.opacity = '0';
+  }, 4000);
+}
+
 async function syncStateToFirebaseCloud() {
+  const currentSettings = getStorage('settings', SEED_DATA.settings);
   const snapshot = {
     fleet: allFleetData || [],
     destinations: allDestinationsData || [],
     trips: allTripsData || [],
     services: allServicesData || [],
+    settings: currentSettings,
     updated_at: new Date().toISOString()
   };
 
@@ -27,8 +55,18 @@ async function syncStateToFirebaseCloud() {
   setStorage('destinations', snapshot.destinations);
   setStorage('trips', snapshot.trips);
   setStorage('services', snapshot.services);
+  setStorage('settings', snapshot.settings);
 
-  // 2. Sync to API server memoryStore
+  // 2. Sync to Cloud Firestore (Global Single Source of Truth across all devices & browsers)
+  try {
+    const docRef = doc(db, 'site_content', 'data');
+    await setDoc(docRef, snapshot, { merge: true });
+    console.log('☁️ Synced updated data snapshot to Cloud Firestore.');
+  } catch (firestoreErr) {
+    console.warn('Firestore sync note:', firestoreErr.message);
+  }
+
+  // 3. Sync to API server memoryStore & persistent storage
   try {
     await fetch('/api/sync-state', {
       method: 'POST',
@@ -39,18 +77,76 @@ async function syncStateToFirebaseCloud() {
     console.warn('API sync-state note:', apiErr.message);
   }
 
-  // 3. Sync to Firebase Cloud Storage (global single source of truth across all devices)
+  // 4. Backup sync to Firebase Cloud Storage
   try {
     const jsonBlob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
     await uploadBytes(cloudRef, jsonBlob);
-    console.log('☁️ Synced updated data snapshot to Firebase Cloud Storage & API.');
+    console.log('☁️ Synced updated data snapshot to Firebase Cloud Storage.');
   } catch (err) {
-    console.warn('Firebase Cloud sync note:', err.message);
+    console.warn('Firebase Cloud storage backup note:', err.message);
   }
 }
 
 async function initAdminCloudState() {
+  // 1. First priority: Cloud Firestore single source of truth
+  try {
+    const docRef = doc(db, 'site_content', 'data');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const cData = snap.data();
+      if (cData) {
+        if (Array.isArray(cData.fleet)) { allFleetData = cData.fleet; setStorage('fleet', allFleetData); }
+        if (Array.isArray(cData.destinations)) { allDestinationsData = cData.destinations; setStorage('destinations', allDestinationsData); }
+        if (Array.isArray(cData.trips)) { allTripsData = cData.trips; setStorage('trips', allTripsData); }
+        if (Array.isArray(cData.services)) { allServicesData = cData.services; setStorage('services', allServicesData); }
+        if (cData.settings && typeof cData.settings === 'object') { setStorage('settings', cData.settings); }
+        console.log('✅ Loaded latest cloud state from Cloud Firestore.');
+      }
+    } else {
+      console.log('Initializing baseline cloud state in Cloud Firestore...');
+      allFleetData = getStorage('fleet', SEED_DATA.fleet);
+      allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+      allTripsData = getStorage('trips', SEED_DATA.trips);
+      allServicesData = getStorage('services', SEED_DATA.services);
+      await syncStateToFirebaseCloud();
+    }
+
+    // Subscribe to live Firestore updates from other admin sessions
+    onSnapshot(docRef, (liveSnap) => {
+      if (liveSnap.exists()) {
+        const liveData = liveSnap.data();
+        if (liveData && liveData.updated_at) {
+          if (Array.isArray(liveData.fleet)) allFleetData = liveData.fleet;
+          if (Array.isArray(liveData.destinations)) allDestinationsData = liveData.destinations;
+          if (Array.isArray(liveData.trips)) allTripsData = liveData.trips;
+          if (Array.isArray(liveData.services)) allServicesData = liveData.services;
+        }
+      }
+    }, (err) => console.warn('Admin onSnapshot note:', err.message));
+
+    return true;
+  } catch (err) {
+    console.warn('Firestore initialization note:', err.message);
+  }
+
+  // 2. Fallback: API server snapshot
+  try {
+    const apiRes = await fetch('/api/snapshot');
+    if (apiRes.ok) {
+      const s = await apiRes.json();
+      if (s && s.success) {
+        if (Array.isArray(s.fleet)) { allFleetData = s.fleet; setStorage('fleet', allFleetData); }
+        if (Array.isArray(s.destinations)) { allDestinationsData = s.destinations; setStorage('destinations', allDestinationsData); }
+        if (Array.isArray(s.trips)) { allTripsData = s.trips; setStorage('trips', allTripsData); }
+        if (Array.isArray(s.services)) { allServicesData = s.services; setStorage('services', allServicesData); }
+        if (s.settings) { setStorage('settings', s.settings); }
+        return true;
+      }
+    }
+  } catch (apiErr) {}
+
+  // 3. Fallback: Firebase Storage JSON
   try {
     const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
     const downloadUrl = await getDownloadURL(cloudRef);
@@ -59,35 +155,20 @@ async function initAdminCloudState() {
       if (res.ok) {
         const cData = await res.json();
         if (cData) {
-          if (Array.isArray(cData.fleet)) {
-            allFleetData = cData.fleet;
-            setStorage('fleet', allFleetData);
-          }
-          if (Array.isArray(cData.destinations)) {
-            allDestinationsData = cData.destinations;
-            setStorage('destinations', allDestinationsData);
-          }
-          if (Array.isArray(cData.trips)) {
-            allTripsData = cData.trips;
-            setStorage('trips', allTripsData);
-          }
-          if (Array.isArray(cData.services)) {
-            allServicesData = cData.services;
-            setStorage('services', allServicesData);
-          }
-          console.log('✅ Loaded latest cloud state from Firebase Storage.');
+          if (Array.isArray(cData.fleet)) { allFleetData = cData.fleet; setStorage('fleet', allFleetData); }
+          if (Array.isArray(cData.destinations)) { allDestinationsData = cData.destinations; setStorage('destinations', allDestinationsData); }
+          if (Array.isArray(cData.trips)) { allTripsData = cData.trips; setStorage('trips', allTripsData); }
+          if (Array.isArray(cData.services)) { allServicesData = cData.services; setStorage('services', allServicesData); }
           return true;
         }
       }
     }
-  } catch (err) {
-    console.log('No prior cloud state in Firebase Storage. Initializing baseline cloud state...');
-    allFleetData = getStorage('fleet', SEED_DATA.fleet);
-    allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
-    allTripsData = getStorage('trips', SEED_DATA.trips);
-    allServicesData = getStorage('services', SEED_DATA.services);
-    await syncStateToFirebaseCloud();
-  }
+  } catch (e) {}
+
+  allFleetData = getStorage('fleet', SEED_DATA.fleet);
+  allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+  allTripsData = getStorage('trips', SEED_DATA.trips);
+  allServicesData = getStorage('services', SEED_DATA.services);
   return false;
 }
 
@@ -701,6 +782,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const airbagsInput = document.getElementById('veh_airbags') || document.getElementById('veh_luggage');
       const airbagsVal = airbagsInput ? airbagsInput.value.trim() : 'Dual Airbags';
 
+      const vehStatusEl = document.getElementById('veh_status');
+      const isAvailableVal = vehStatusEl ? parseInt(vehStatusEl.value, 10) : 1;
+
       const payload = {
         model_name: document.getElementById('veh_name').value.trim(),
         category: document.getElementById('veh_category').value.trim(),
@@ -712,7 +796,8 @@ document.addEventListener('DOMContentLoaded', () => {
         mileage: document.getElementById('veh_mileage') ? document.getElementById('veh_mileage').value.trim() : '',
         description: document.getElementById('veh_desc').value.trim(),
         image_url: imageUrl,
-        is_available: 1
+        is_available: isAvailableVal,
+        is_published: isAvailableVal
       };
 
       // 1. Immediately update allFleetData & localStorage
@@ -821,13 +906,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('dest_image_url').value = imageUrl;
       }
 
+      const destStatusEl = document.getElementById('dest_status');
+      const isPopVal = destStatusEl ? parseInt(destStatusEl.value, 10) : 1;
+
       const payload = {
         name: document.getElementById('dest_name').value.trim(),
         subtitle: document.getElementById('dest_subtitle').value.trim(),
         distance: document.getElementById('dest_distance').value.trim(),
         duration: document.getElementById('dest_duration').value.trim(),
         description: document.getElementById('dest_desc').value.trim(),
-        image_url: imageUrl
+        image_url: imageUrl,
+        is_popular: isPopVal,
+        is_published: isPopVal
       };
 
       if (!allDestinationsData || allDestinationsData.length === 0) {
@@ -930,6 +1020,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('trip_image_url').value = imageUrl;
       }
 
+      const tripStatusEl = document.getElementById('trip_status');
+      const isPopVal = tripStatusEl ? parseInt(tripStatusEl.value, 10) : 1;
+
       const payload = {
         title: document.getElementById('trip_title').value.trim(),
         duration_days: document.getElementById('trip_duration').value.trim(),
@@ -940,7 +1033,9 @@ document.addEventListener('DOMContentLoaded', () => {
         inclusions: document.getElementById('trip_inclusions').value.trim(),
         exclusions: document.getElementById('trip_exclusions').value.trim(),
         image_url: imageUrl,
-        is_popular: 1
+        is_popular: isPopVal,
+        is_active: isPopVal,
+        is_published: isPopVal
       };
 
       if (!allTripsData || allTripsData.length === 0) {
@@ -988,11 +1083,16 @@ document.addEventListener('DOMContentLoaded', () => {
     serviceEditForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('editServiceId').value;
+      const svcStatusEl = document.getElementById('editServiceStatus');
+      const isActVal = svcStatusEl ? parseInt(svcStatusEl.value, 10) : 1;
+
       const payload = {
         name: document.getElementById('editServiceName').value.trim(),
         starting_price: document.getElementById('editServicePrice').value.trim(),
         description: document.getElementById('editServiceDesc').value.trim(),
-        features: document.getElementById('editServiceFeatures').value.trim()
+        features: document.getElementById('editServiceFeatures').value.trim(),
+        is_active: isActVal,
+        is_published: isActVal
       };
 
       if (!allServicesData || allServicesData.length === 0) {
@@ -1033,14 +1133,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (settingsForm) {
     settingsForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const getVal = (id1, id2, def = '') => {
+        const el = document.getElementById(id1) || document.getElementById(id2);
+        return el ? el.value.trim() : def;
+      };
+
       const payload = {
-        company_name: document.getElementById('set_company_name').value.trim(),
-        slogan: document.getElementById('set_slogan').value.trim(),
-        primary_phone: document.getElementById('set_primary_phone').value.trim(),
-        secondary_phone: document.getElementById('set_secondary_phone').value.trim(),
-        email: document.getElementById('set_email').value.trim(),
-        location: document.getElementById('set_location').value.trim(),
-        announcement: document.getElementById('set_announcement').value.trim()
+        company_name: getVal('setting_company_name', 'set_company_name', 'Yakshith Nandh Travels'),
+        slogan: getVal('setting_slogan', 'set_slogan', 'Your Safety, Our Priority.'),
+        primary_phone: getVal('setting_primary_phone', 'set_primary_phone', '+91 88868 30755'),
+        secondary_phone: getVal('setting_secondary_phone', 'set_secondary_phone', '+91 97009 35888'),
+        email: getVal('setting_email', 'set_email', 'yakshithnandhtravels.demo@gmail.com'),
+        location: getVal('setting_location', 'set_location', 'Tirupati, Andhra Pradesh, India'),
+        announcement: getVal('setting_announcement', 'set_announcement', '24/7 Available • Pilgrimage & Cab Service in Tirupati')
       };
 
       setStorage('settings', payload);
@@ -1053,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {}
 
       await syncStateToFirebaseCloud();
-      alert('Brand and helpline settings updated across all devices!');
+      showAdminToast('✅ Brand and helpline settings updated live across all devices!');
     });
   }
 });
@@ -1265,9 +1370,16 @@ async function loadServices(forceFetch = false) {
   }
   }
 
-  container.innerHTML = allServicesData.map(s => `
+  container.innerHTML = allServicesData.map(s => {
+    const isPub = (s.is_published !== 0 && s.is_active !== 0);
+    return `
     <div class="admin-content-card">
-      <span class="card-top-tag">${escapeHTML(s.category || 'Service')}</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span class="card-top-tag" style="margin:0;">${escapeHTML(s.category || 'Service')}</span>
+        <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" onclick="toggleServicePublish(${s.id})" title="Click to toggle publish status">
+          ${isPub ? '🟢 Published' : '🟡 Draft'}
+        </button>
+      </div>
       <h3>${escapeHTML(s.name)}</h3>
       <p>${escapeHTML(s.description)}</p>
       <div style="font-size:0.85rem; margin-bottom:12px; color:var(--color-primary); font-weight:700;">
@@ -1283,7 +1395,8 @@ async function loadServices(forceFetch = false) {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // 4. Fleet Section Cards (Shows every vehicle data, car photo, Airbags option, text seats)
@@ -1325,13 +1438,16 @@ async function loadFleet(forceFetch = false) {
     const isFirebase = v.image_url && v.image_url.includes('firebasestorage.app');
     const displayImg = v.image_url || defaultVehiclePhoto;
     const airbagsDisplay = v.airbags || v.luggage_bags || 'Dual Airbags';
+    const isPub = (v.is_published !== 0 && v.is_available !== 0);
 
     return `
       <div class="admin-content-card">
         <div style="width:100%; height:150px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(v.model_name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultVehiclePhoto}'">
           <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.9); color:#FFF9F0;">${escapeHTML(v.category || 'Fleet')}</span>
-          <span style="position:absolute; top:8px; right:8px; background:#2e7d32; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">Active</span>
+          <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" style="position:absolute; top:8px; right:8px;" onclick="toggleVehiclePublish(${v.id})" title="Click to toggle publish status">
+            ${isPub ? '🟢 Published' : '🟡 Draft'}
+          </button>
         </div>
 
         <h3 style="margin-top:0; margin-bottom:6px;">${escapeHTML(v.model_name)}</h3>
@@ -1401,15 +1517,16 @@ async function loadDestinations(forceFetch = false) {
   container.innerHTML = allDestinationsData.map(d => {
     const isFirebase = d.image_url && d.image_url.includes('firebasestorage.app');
     const displayImg = d.image_url || defaultDestPhoto;
+    const isPub = (d.is_published !== 0 && d.is_popular !== 0);
 
     return `
       <div class="admin-content-card">
         <div style="width:100%; height:150px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(d.name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultDestPhoto}'">
           <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.9); color:#FFF9F0;">Destination #${d.id}</span>
-          ${isFirebase ? `
-            <span style="position:absolute; top:8px; right:8px; background:#D86300; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">🔥 Cloud Asset</span>
-          ` : ''}
+          <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" style="position:absolute; top:8px; right:8px;" onclick="toggleDestinationPublish(${d.id})" title="Click to toggle publish status">
+            ${isPub ? '🟢 Published' : '🟡 Draft'}
+          </button>
         </div>
 
         <h3 style="margin-top:0; margin-bottom:6px;">${escapeHTML(d.name)}</h3>
@@ -1476,6 +1593,7 @@ async function loadTrips(forceFetch = false) {
   container.innerHTML = allTripsData.map(t => {
     const isFirebase = t.image_url && t.image_url.includes('firebasestorage.app');
     const displayImg = t.image_url || defaultTripPhoto;
+    const isPub = (t.is_published !== 0 && t.is_popular !== 0 && t.is_active !== 0);
 
     const itineraryLines = (t.itinerary || '').split('\n').filter(l => l.trim().length > 0);
     const itineraryPreview = itineraryLines.slice(0, 3).map(line => {
@@ -1489,12 +1607,9 @@ async function loadTrips(forceFetch = false) {
           <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.92); color:#FFF9F0; font-weight:700;">
             📅 ${escapeHTML(t.duration_days || '1 Day')}
           </span>
-          <span style="position:absolute; top:8px; right:8px; background:#2E7D32; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">
-            ${escapeHTML(t.starting_price ? 'From ' + t.starting_price : 'All-Inclusive')}
-          </span>
-          ${isFirebase ? `
-            <span style="position:absolute; bottom:8px; left:8px; background:#D86300; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:4px;">🔥 Cloud Asset</span>
-          ` : ''}
+          <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" style="position:absolute; top:8px; right:8px;" onclick="toggleTripPublish(${t.id})" title="Click to toggle publish status">
+            ${isPub ? '🟢 Published' : '🟡 Draft'}
+          </button>
         </div>
 
         <h3 style="margin-top:0; margin-bottom:4px; font-size:1.15rem;">${escapeHTML(t.title)}</h3>
@@ -1602,6 +1717,14 @@ async function loadSettings() {
     if (el && val !== undefined) el.value = val;
   };
 
+  setVal('setting_company_name', settings.company_name);
+  setVal('setting_slogan', settings.slogan);
+  setVal('setting_primary_phone', settings.primary_phone);
+  setVal('setting_secondary_phone', settings.secondary_phone);
+  setVal('setting_email', settings.email);
+  setVal('setting_location', settings.location);
+  setVal('setting_announcement', settings.announcement);
+
   setVal('set_company_name', settings.company_name);
   setVal('set_slogan', settings.slogan);
   setVal('set_primary_phone', settings.primary_phone);
@@ -1652,6 +1775,8 @@ window.openEditServiceModal = (id) => {
   document.getElementById('editServicePrice').value = service.starting_price || '';
   document.getElementById('editServiceDesc').value = service.description;
   document.getElementById('editServiceFeatures').value = service.features || '';
+  const statusEl = document.getElementById('editServiceStatus');
+  if (statusEl) statusEl.value = (service.is_published !== 0 && service.is_active !== 0) ? '1' : '0';
   document.getElementById('serviceEditModal').classList.add('open');
 };
 window.closeServiceEditModal = () => document.getElementById('serviceEditModal').classList.remove('open');
@@ -1695,6 +1820,9 @@ window.openEditVehicleModal = (id) => {
   }
   document.getElementById('veh_desc').value = veh.description || '';
 
+  const statusEl = document.getElementById('veh_status');
+  if (statusEl) statusEl.value = (veh.is_published !== 0 && veh.is_available !== 0) ? '1' : '0';
+
   const urlInput = document.getElementById('veh_image_url');
   const previewBox = document.getElementById('veh_image_preview_box');
   const previewImg = document.getElementById('veh_image_preview');
@@ -1734,6 +1862,9 @@ window.openEditDestinationModal = (id) => {
   document.getElementById('dest_distance').value = dest.distance || '';
   document.getElementById('dest_duration').value = dest.duration || '';
   document.getElementById('dest_desc').value = dest.description || '';
+
+  const statusEl = document.getElementById('dest_status');
+  if (statusEl) statusEl.value = (dest.is_published !== 0 && dest.is_popular !== 0) ? '1' : '0';
 
   const urlInput = document.getElementById('dest_image_url');
   const previewBox = document.getElementById('dest_image_preview_box');
@@ -1779,6 +1910,9 @@ window.openEditTripModal = (id) => {
   document.getElementById('trip_inclusions').value = trip.inclusions || 'Tolls Included, Parkings Included, Driver Wage Included, Border Tax Included, 24*7 Support, Best Price Guaranteed';
   document.getElementById('trip_exclusions').value = trip.exclusions || '';
 
+  const statusEl = document.getElementById('trip_status');
+  if (statusEl) statusEl.value = (trip.is_published !== 0 && trip.is_popular !== 0 && trip.is_active !== 0) ? '1' : '0';
+
   const urlInput = document.getElementById('trip_image_url');
   const previewBox = document.getElementById('trip_image_preview_box');
   const previewImg = document.getElementById('trip_image_preview');
@@ -1797,6 +1931,95 @@ window.openEditTripModal = (id) => {
 };
 
 window.closeTripModal = () => document.getElementById('tripModal').classList.remove('open');
+
+// ==========================================================================
+// 1-CLICK PUBLISH / DRAFT TOGGLE ACTIONS (INSTANT LIVE SYNC)
+// ==========================================================================
+
+window.toggleVehiclePublish = async (id) => {
+  if (!allFleetData || allFleetData.length === 0) allFleetData = getStorage('fleet', SEED_DATA.fleet);
+  const v = allFleetData.find(item => String(item.id) === String(id));
+  if (v) {
+    const isPub = (v.is_published !== 0 && v.is_available !== 0);
+    v.is_published = isPub ? 0 : 1;
+    v.is_available = isPub ? 0 : 1;
+    setStorage('fleet', allFleetData);
+    try {
+      await fetch(`/api/fleet/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_available: v.is_available, is_published: v.is_published })
+      });
+    } catch (e) {}
+    await syncStateToFirebaseCloud();
+    await loadFleet(false);
+    showAdminToast(v.is_published ? '🟢 Vehicle published & live on website!' : '🟡 Vehicle set to draft (hidden from website)!');
+  }
+};
+
+window.toggleDestinationPublish = async (id) => {
+  if (!allDestinationsData || allDestinationsData.length === 0) allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
+  const d = allDestinationsData.find(item => String(item.id) === String(id));
+  if (d) {
+    const isPub = (d.is_published !== 0 && d.is_popular !== 0);
+    d.is_published = isPub ? 0 : 1;
+    d.is_popular = isPub ? 0 : 1;
+    setStorage('destinations', allDestinationsData);
+    try {
+      await fetch(`/api/destinations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_popular: d.is_popular, is_published: d.is_published })
+      });
+    } catch (e) {}
+    await syncStateToFirebaseCloud();
+    await loadDestinations(false);
+    showAdminToast(d.is_published ? '🟢 Destination published & live on website!' : '🟡 Destination set to draft (hidden from website)!');
+  }
+};
+
+window.toggleTripPublish = async (id) => {
+  if (!allTripsData || allTripsData.length === 0) allTripsData = getStorage('trips', SEED_DATA.trips);
+  const t = allTripsData.find(item => String(item.id) === String(id));
+  if (t) {
+    const isPub = (t.is_published !== 0 && t.is_popular !== 0 && t.is_active !== 0);
+    t.is_published = isPub ? 0 : 1;
+    t.is_popular = isPub ? 0 : 1;
+    t.is_active = isPub ? 0 : 1;
+    setStorage('trips', allTripsData);
+    try {
+      await fetch(`/api/trips/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_popular: t.is_popular, is_active: t.is_active, is_published: t.is_published })
+      });
+    } catch (e) {}
+    await syncStateToFirebaseCloud();
+    await loadTrips(false);
+    showAdminToast(t.is_published ? '🟢 Trip package published & live on website!' : '🟡 Trip package set to draft (hidden from website)!');
+  }
+};
+
+window.toggleServicePublish = async (id) => {
+  if (!allServicesData || allServicesData.length === 0) allServicesData = getStorage('services', SEED_DATA.services);
+  const s = allServicesData.find(item => String(item.id) === String(id));
+  if (s) {
+    const isPub = (s.is_published !== 0 && s.is_active !== 0);
+    s.is_published = isPub ? 0 : 1;
+    s.is_active = isPub ? 0 : 1;
+    setStorage('services', allServicesData);
+    try {
+      await fetch(`/api/services/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: s.is_active, is_published: s.is_published })
+      });
+    } catch (e) {}
+    await syncStateToFirebaseCloud();
+    await loadServices(false);
+    showAdminToast(s.is_published ? '🟢 Service published & live on website!' : '🟡 Service set to draft (hidden from website)!');
+  }
+};
 
 window.deleteTripRecord = async (id) => {
   if (!confirm('Are you sure you want to delete this trip package?')) return;

@@ -2617,3 +2617,42 @@ textarea.form-control {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   REAL-TIME ADMIN STATUS BADGES & LIVE CONTROLS
+   ========================================================================== */
+.btn-status-published {
+  background: #E8F5E9 !important;
+  color: #2E7D32 !important;
+  border: 1px solid #A5D6A7 !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  transition: all 0.2s ease !important;
+}
+.btn-status-published:hover {
+  background: #C8E6C9 !important;
+}
+.btn-status-draft {
+  background: #FFF8E1 !important;
+  color: #E65100 !important;
+  border: 1px solid #FFE082 !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  transition: all 0.2s ease !important;
+}
+.btn-status-draft:hover {
+  background: #FFECB3 !important;
+}
+

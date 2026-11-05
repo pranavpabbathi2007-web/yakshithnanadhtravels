@@ -18,6 +18,10 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
+  onSnapshot,
+  collection,
+  getDocs,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
@@ -129,6 +133,15 @@ export {
   auth,
   db,
   storage,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  collection,
+  getDocs,
+  serverTimestamp,
   loginAdminWithFirebase,
   createAdminWithFirebase,
   uploadToFirebaseStorage,

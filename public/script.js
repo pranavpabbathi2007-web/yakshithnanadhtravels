@@ -4,6 +4,8 @@
  * Dispatch Hotline: +91 88868 30755 / +91 97009 35888
  */
 
+import { db, doc, onSnapshot, getDoc } from './firebase-config.js';
+
 document.addEventListener('DOMContentLoaded', () => {
   // 1. DOM Elements
   const header = document.querySelector('.main-header');
@@ -505,43 +507,391 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     });
   });
 
-  // 11. Live Webpage Data Synchronization (Backend to Frontend)
-  const syncLiveWebpageData = async () => {
-    try {
-      const cloud = await fetchGlobalCloudData();
-      if (cloud && cloud.settings) {
-        const s = cloud.settings;
-        if (s.slogan) {
-          document.querySelectorAll('.hero-slogan-box span:last-child, .footer-slogan').forEach(el => { el.textContent = `"${s.slogan}"`; });
-        }
-        if (s.announcement) {
-          const annEl = document.querySelector('.top-bar-pill');
-          if (annEl) annEl.textContent = s.announcement;
-        }
-      }
-      if (cloud && Array.isArray(cloud.services)) {
-        const serviceCards = document.querySelectorAll('.service-card');
-        cloud.services.forEach((s, idx) => {
-          if (serviceCards[idx]) {
-            const titleEl = serviceCards[idx].querySelector('.service-title');
-            const descEl = serviceCards[idx].querySelector('.service-desc');
-            if (titleEl && s.name) titleEl.textContent = s.name;
-            if (descEl && s.description) descEl.textContent = s.description;
-          }
+  // ==========================================================================
+  // UNIFIED LIVE WEBSITE SYNCHRONIZATION ENGINE (Single Source of Truth)
+  // Reactive updates from Cloud Firestore + Instant Revalidation Polling
+  // ==========================================================================
+
+  const escapeHTML = (str) => {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  let lastAppliedSnapshotHash = '';
+
+  const applyWebsiteData = (data) => {
+    if (!data || typeof data !== 'object') return;
+
+    // Fast change detection to avoid unnecessary DOM thrashing
+    const currentHash = JSON.stringify({
+      s: data.settings,
+      f: (data.fleet || []).length,
+      d: (data.destinations || []).length,
+      t: (data.trips || []).length,
+      v: (data.services || []).length,
+      u: data.updated_at
+    });
+    if (currentHash === lastAppliedSnapshotHash) return;
+    lastAppliedSnapshotHash = currentHash;
+
+    // 1. Synchronize Website Branding, Helpline Numbers & Contact Details
+    if (data.settings && typeof data.settings === 'object') {
+      const s = data.settings;
+
+      // Slogan
+      if (s.slogan) {
+        document.querySelectorAll('.hero-slogan-box span:last-child, .footer-slogan, .about-lead').forEach(el => {
+          el.textContent = `"${s.slogan}"`;
         });
       }
-    } catch (e) {
-      // Graceful fallback
+
+      // Company Name
+      if (s.company_name) {
+        document.querySelectorAll('.brand-name, .footer-brand-logo strong').forEach(el => {
+          el.textContent = s.company_name;
+        });
+      }
+
+      // Top Announcement Bar
+      if (s.announcement) {
+        document.querySelectorAll('.top-bar-pill').forEach(el => {
+          el.textContent = s.announcement;
+        });
+      }
+
+      // Primary Hotline
+      if (s.primary_phone) {
+        const cleanPhone = s.primary_phone.replace(/\s+/g, '');
+        document.querySelectorAll('a[title="Call Primary Dispatch"] span, .contact-card:nth-child(1) .contact-action-link, .location-banner-cta a[href^="tel"] span').forEach(el => {
+          el.textContent = s.primary_phone;
+        });
+        document.querySelectorAll('a[title="Call Primary Dispatch"], .contact-card:nth-child(1) a[href^="tel"], .location-banner-cta a[href^="tel"]').forEach(el => {
+          el.setAttribute('href', `tel:${cleanPhone}`);
+        });
+      }
+
+      // Secondary Helpline
+      if (s.secondary_phone) {
+        const cleanSecPhone = s.secondary_phone.replace(/\s+/g, '');
+        document.querySelectorAll('a[title="Call Secondary Dispatch"] span, .contact-card:nth-child(2) .contact-action-link').forEach(el => {
+          el.textContent = s.secondary_phone;
+        });
+        document.querySelectorAll('a[title="Call Secondary Dispatch"], .contact-card:nth-child(2) a[href^="tel"]').forEach(el => {
+          el.setAttribute('href', `tel:${cleanSecPhone}`);
+        });
+      }
+
+      // Business Email
+      if (s.email) {
+        document.querySelectorAll('.contact-card:nth-child(4) .contact-action-link, .footer-about + a[href^="mailto"]').forEach(el => {
+          el.textContent = s.email;
+          el.setAttribute('href', `mailto:${s.email}`);
+        });
+      }
+
+      // Base Location
+      if (s.location) {
+        document.querySelectorAll('.top-bar-contact .top-bar-item:nth-child(3) span, .footer-brand-col span[style*="uppercase"]').forEach(el => {
+          el.textContent = s.location;
+        });
+      }
+    }
+
+    // 2. Synchronize Services Section & Dropdown Options
+    if (data.services && Array.isArray(data.services)) {
+      const publishedServices = data.services.filter(s => s.is_published !== 0 && s.is_active !== 0);
+      const servicesGrid = document.querySelector('.services-grid');
+      if (servicesGrid && publishedServices.length > 0) {
+        servicesGrid.innerHTML = publishedServices.map((s, idx) => {
+          const featuresList = (s.features || '').split(',').map(f => f.trim()).filter(f => f.length > 0);
+          const featuresHTML = featuresList.map(feat => `
+            <li>
+              <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              <span>${escapeHTML(feat)}</span>
+            </li>
+          `).join('');
+
+          return `
+            <div class="service-card reveal-fade-up is-revealed stagger-${(idx % 4) + 1}">
+              <div class="service-icon-medallion">
+                <svg viewBox="0 0 24 24"><path d="M12 2L9 7h6l-3-5zm-5 6l-2 5h14l-2-5H7zm-3 6l-2 6h18l-2-6H4z"/></svg>
+              </div>
+              <h3 class="service-title">${escapeHTML(s.name)}</h3>
+              <p class="service-desc">${escapeHTML(s.description || '')}</p>
+              ${featuresHTML ? `<ul class="service-features-list">${featuresHTML}</ul>` : ''}
+              <div class="service-card-footer" style="margin-top:auto; padding-top:14px; display:flex; justify-content:space-between; align-items:center;">
+                <span class="service-price-tag" style="font-size:0.88rem; font-weight:700; color:var(--color-primary); background:#FFF9F0; border:1px solid var(--color-border); padding:4px 10px; border-radius:999px;">
+                  From ${escapeHTML(s.starting_price || 'Best Rate')}
+                </span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="selectServiceForBooking('${escapeHTML((s.name || '').replace(/'/g, "\\'"))}')">
+                  Book Service
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update Service select options in the booking form
+      const serviceSelect = document.getElementById('serviceSelection');
+      if (serviceSelect && publishedServices.length > 0) {
+        const currentVal = serviceSelect.value;
+        serviceSelect.innerHTML = '<option value="" disabled selected>Select a Service</option>' +
+          publishedServices.map(s => `<option value="${escapeHTML(s.name)}">${escapeHTML(s.name)} (from ${escapeHTML(s.starting_price || 'Best Rate')})</option>`).join('');
+        if (currentVal) serviceSelect.value = currentVal;
+      }
+    }
+
+    // 3. Synchronize Vehicles Fleet Section & Dropdown Options
+    if (data.fleet && Array.isArray(data.fleet)) {
+      const publishedFleet = data.fleet.filter(v => v.is_published !== 0 && v.is_available !== 0);
+      const fleetGrid = document.querySelector('.vehicles-grid');
+      if (fleetGrid && publishedFleet.length > 0) {
+        const defaultImg = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80';
+        fleetGrid.innerHTML = publishedFleet.map((v, idx) => {
+          const imgUrl = v.image_url || defaultImg;
+          return `
+            <div class="vehicle-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+              <div class="vehicle-image-wrapper">
+                <img src="${imgUrl}" alt="${escapeHTML(v.model_name)} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.src='${defaultImg}'">
+                <div class="vehicle-badge-overlay">${escapeHTML(v.category || 'Special Fleet')}</div>
+                <div class="vehicle-specs-overlay">${escapeHTML(v.capacity || '4 Seater')} • ${escapeHTML(v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags'))}</div>
+              </div>
+              <div class="vehicle-details">
+                <h3 class="vehicle-name">${escapeHTML(v.model_name)}</h3>
+                <div class="vehicle-tagline">${escapeHTML(v.rate_per_km ? 'Tariff: ' + v.rate_per_km : 'Supreme Comfort & Ghat Mastery')}</div>
+                <p class="vehicle-desc">${escapeHTML(v.description || 'Maintained to pristine standards, fully air-conditioned, and equipped with modern safety features.')}</p>
+                <div class="vehicle-specs-row">
+                  <div class="spec-item">
+                    <strong>${escapeHTML(v.capacity || '4 Seater')}</strong>
+                    <span>Seats</span>
+                  </div>
+                  <div class="spec-item">
+                    <strong>${escapeHTML(v.daily_rent || '₹3,500/day')}</strong>
+                    <span>Daily Rent</span>
+                  </div>
+                  <div class="spec-item">
+                    <strong>${escapeHTML(v.mileage || '14-18 km/l')}</strong>
+                    <span>Mileage</span>
+                  </div>
+                  <div class="spec-item">
+                    <strong>${escapeHTML(v.airbags || v.luggage_bags || 'Dual Airbags')}</strong>
+                    <span>Airbags</span>
+                  </div>
+                </div>
+                <div class="vehicle-action-footer">
+                  <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${escapeHTML((v.model_name || '').replace(/'/g, "\\'"))}')">
+                    <span>Enquire Now</span>
+                    <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
+                      <path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42L16.86 11H5v2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update Vehicle select options in the booking form
+      const vehicleSelect = document.getElementById('preferredVehicle');
+      if (vehicleSelect && publishedFleet.length > 0) {
+        const currentVal = vehicleSelect.value;
+        vehicleSelect.innerHTML = '<option value="" disabled selected>Select Preferred Vehicle</option>' +
+          publishedFleet.map(v => `<option value="${escapeHTML(v.model_name)}">${escapeHTML(v.model_name)} (${escapeHTML(v.capacity || 'AC')})</option>`).join('');
+        if (currentVal) vehicleSelect.value = currentVal;
+      }
+    }
+
+    // 4. Synchronize Destinations Section
+    if (data.destinations && Array.isArray(data.destinations)) {
+      const publishedDestinations = data.destinations.filter(d => d.is_published !== 0 && d.is_popular !== 0);
+      const destGrid = document.querySelector('.destinations-grid');
+      if (destGrid && publishedDestinations.length > 0) {
+        const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+        destGrid.innerHTML = publishedDestinations.map((d, idx) => {
+          const imgUrl = d.image_url || defaultDestImg;
+          return `
+            <div class="destination-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+              <div class="destination-img-box">
+                <img src="${imgUrl}" alt="${escapeHTML(d.name)} - Yakshith Nandh Travels" class="destination-img" loading="lazy" onerror="this.src='${defaultDestImg}'">
+                <div class="destination-badge">${escapeHTML(d.subtitle || 'Divine Abode')}</div>
+              </div>
+              <div class="destination-info">
+                <h3 class="destination-title">${escapeHTML(d.name)}</h3>
+                <div class="destination-subtitle">${escapeHTML(d.subtitle || '')}</div>
+                <p class="destination-desc">${escapeHTML(d.description || '')}</p>
+                <div class="destination-footer">
+                  <span class="destination-dist">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /></svg>
+                    <span>${escapeHTML(d.distance || 'Local')} • ${escapeHTML(d.duration || 'Half Day')}</span>
+                  </span>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="selectDestinationForBooking('${escapeHTML((d.name || '').replace(/'/g, "\\'"))}', 'Outstation Pilgrimage')">
+                    Plan Trip
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // 5. Synchronize Trips & Multi-Day Tour Packages Section
+    if (data.trips && Array.isArray(data.trips)) {
+      const publishedTrips = data.trips.filter(t => t.is_published !== 0 && t.is_active !== 0);
+      const tripsGrid = document.querySelector('.trips-grid');
+      if (tripsGrid && publishedTrips.length > 0) {
+        const defaultTripImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+        tripsGrid.innerHTML = publishedTrips.map((t, idx) => {
+          const imgUrl = t.image_url || defaultTripImg;
+
+          // Day-wise itinerary
+          const itineraryLines = (t.itinerary || '').split('\n').filter(l => l.trim().length > 0);
+          const dayListHTML = itineraryLines.map((line, dIdx) => {
+            let dayLabel = `Day ${dIdx + 1}`;
+            let content = line;
+            const match = line.match(/^(Day\s*[0-9]+)\s*[:\-]\s*(.*)$/i);
+            if (match) {
+              dayLabel = match[1];
+              content = match[2];
+            }
+            return `
+              <div class="itinerary-day-item">
+                <span class="day-chip">${escapeHTML(dayLabel)}</span>
+                <span>${escapeHTML(content)}</span>
+              </div>
+            `;
+          }).join('');
+
+          // Vehicles and pricing pills
+          const vehicleItems = (t.vehicle_pricing || '').split('|').map(v => v.trim()).filter(v => v.length > 0);
+          const vehicleGridHTML = vehicleItems.map(item => {
+            const parts = item.split(':');
+            const vName = parts[0] ? parts[0].trim() : item;
+            const vPrice = parts[1] ? parts[1].trim() : '';
+            return `
+              <div class="vehicle-price-pill">
+                <span>${escapeHTML(vName)}:</span>
+                <strong>${escapeHTML(vPrice)}</strong>
+              </div>
+            `;
+          }).join('');
+
+          // Inclusions
+          const inclusionItems = (t.inclusions || 'Tolls Included, Parkings Included, Driver Wage Included, 24*7 Support').split(',').map(i => i.trim()).filter(i => i.length > 0);
+          const incChecklistHTML = inclusionItems.slice(0, 6).map(inc => {
+            return `<span class="inc-check-tag">✓ ${escapeHTML(inc.replace(/^✓\s*/, ''))}</span>`;
+          }).join('');
+
+          return `
+            <div class="trip-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+              <div class="trip-card-image-box">
+                <img src="${imgUrl}" alt="${escapeHTML(t.title)} - Yakshith Nandh Travels" loading="lazy" onerror="this.src='${defaultTripImg}'">
+                <span class="trip-duration-badge">📅 ${escapeHTML(t.duration_days || '1 Day')}</span>
+                <span class="trip-all-inc-badge">✓ All-Inclusive</span>
+              </div>
+              <div class="trip-card-body">
+                <h3 class="trip-card-title">${escapeHTML(t.title)}</h3>
+                <div class="trip-card-subtitle">${escapeHTML(t.subtitle || 'Divine Pilgrimage Circuit')}</div>
+
+                <div class="trip-itinerary-box">
+                  <div class="itinerary-heading">📍 Day-Wise Itinerary:</div>
+                  <div class="itinerary-day-list">
+                    ${dayListHTML || '<div style="font-size:0.85rem;color:var(--color-text-muted);">Customizable temple darshan itinerary with ghat road driver.</div>'}
+                  </div>
+                </div>
+
+                <div class="trip-pricing-table">
+                  <div class="pricing-table-heading">
+                    <span>🚗 Vehicles & Pricing</span>
+                    <span style="font-size:0.72rem; color:var(--color-accent-gold-dark);">All-Inclusive Fare</span>
+                  </div>
+                  <div class="vehicle-price-grid">
+                    ${vehicleGridHTML || '<div class="vehicle-price-pill"><span>Standard Fleet:</span><strong>Best Price</strong></div>'}
+                  </div>
+                </div>
+
+                <div class="trip-inclusions-checklist">
+                  ${incChecklistHTML}
+                </div>
+
+                <div class="trip-card-footer">
+                  <div class="starting-price-box">
+                    <span class="price-label">Starting From</span>
+                    <span class="price-val">${escapeHTML(t.starting_price || 'Best Fare')}</span>
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="selectTripForBooking('${escapeHTML((t.title || '').replace(/'/g, "\\'"))}', '${escapeHTML((t.duration_days || 'Tour Package').replace(/'/g, "\\'"))}')">
+                    Book This Trip
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
   };
 
-  syncLiveWebpageData();
+  // ==========================================================================
+  // REAL-TIME FIRESTORE LISTENER (Live Reactive Updates Across All Devices)
+  // ==========================================================================
+  try {
+    const docRef = doc(db, 'site_content', 'data');
+    onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const cloudData = docSnap.data();
+        if (cloudData) {
+          applyWebsiteData(cloudData);
+          console.log('⚡ Real-time sync: Live state received from Cloud Firestore.');
+        }
+      }
+    }, (err) => {
+      console.warn('Firestore onSnapshot listener note:', err.message);
+    });
+  } catch (err) {
+    console.warn('Firestore initialization note:', err.message);
+  }
 
-  // 12. Admin Live Access Mode & Direct Section Controls
+  // ==========================================================================
+  // RESILIENT BACKGROUND REVALIDATION POLLING (Zero Missed Updates)
+  // ==========================================================================
+  const fetchLatestSnapshot = async () => {
+    try {
+      const res = await fetch('/api/snapshot?ts=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const snapshot = await res.json();
+        if (snapshot && snapshot.success) {
+          applyWebsiteData(snapshot);
+        }
+      }
+    } catch (e) {}
+  };
+
+  // Immediate initial fetch
+  fetchLatestSnapshot();
+
+  // Periodic polling every 3.5 seconds
+  setInterval(fetchLatestSnapshot, 3500);
+
+  // Auto-revalidate whenever tab or window regains focus
+  window.addEventListener('focus', fetchLatestSnapshot);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) fetchLatestSnapshot();
+  });
+
+  // ==========================================================================
+  // ADMIN LIVE PREVIEW CONTROLS (When logged in or ?admin=1)
+  // ==========================================================================
   const checkAdminAccess = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hasAdminParam = urlParams.get('admin') === '1' || urlParams.get('admin') === 'true';
-    const hasAdminStorage = localStorage.getItem('ynt_admin_active') === '1';
+    const hasAdminStorage = localStorage.getItem('ynt_admin_active') === '1' || localStorage.getItem('ynt_admin_token');
 
     if (hasAdminParam) {
       localStorage.setItem('ynt_admin_active', '1');
@@ -563,13 +913,14 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       <div class="container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="background:#C49A52; color:#392B27; font-weight:800; font-size:0.72rem; padding:2px 8px; border-radius:999px;">👑 ADMIN ACCESS ACTIVE</span>
-          <span>You have full administrative control over this webpage's data</span>
+          <span>Changes made in admin panel sync automatically to this live page</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <a href="/admin.html?view=bookings" target="_blank" class="btn btn-sm" style="background:#FFF9F0; color:#7B263A; padding:4px 10px; font-size:0.76rem; font-weight:bold;">Dispatch Console</a>
           <a href="/admin.html?view=services" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Services</a>
           <a href="/admin.html?view=fleet" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Fleet</a>
           <a href="/admin.html?view=destinations" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Destinations</a>
+          <a href="/admin.html?view=trips" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Trips</a>
           <a href="/admin.html?view=settings" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Settings</a>
           <button id="exitAdminBtn" style="background:transparent; border:1px solid #C49A52; color:#FFF; font-size:0.75rem; padding:4px 8px; border-radius:4px; cursor:pointer;">Exit</button>
         </div>
@@ -588,6 +939,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       { id: 'services', view: 'services', label: 'Edit Services' },
       { id: 'vehicles', view: 'fleet', label: 'Edit Vehicles' },
       { id: 'destinations', view: 'destinations', label: 'Edit Destinations' },
+      { id: 'trips', view: 'trips', label: 'Edit Trips & Packages' },
       { id: 'booking', view: 'bookings', label: 'Manage Bookings' },
       { id: 'contact', view: 'messages', label: 'View Inquiries' }
     ];
@@ -609,334 +961,5 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     });
   };
 
-  const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
-
-  let globalCloudData = null;
-  const fetchGlobalCloudData = async () => {
-    if (globalCloudData) return globalCloudData;
-
-    // 1. Direct fetch from Firebase Cloud Storage with cache-buster
-    try {
-      const res = await fetch(FIREBASE_CLOUD_DATA_URL + '&cb=' + Date.now(), { cache: 'no-store' });
-      if (res.ok) {
-        globalCloudData = await res.json();
-        if (globalCloudData) {
-          if (Array.isArray(globalCloudData.fleet)) localStorage.setItem('ynt_fleet', JSON.stringify(globalCloudData.fleet));
-          if (Array.isArray(globalCloudData.destinations)) localStorage.setItem('ynt_destinations', JSON.stringify(globalCloudData.destinations));
-          if (Array.isArray(globalCloudData.trips)) localStorage.setItem('ynt_trips', JSON.stringify(globalCloudData.trips));
-          if (Array.isArray(globalCloudData.services)) localStorage.setItem('ynt_services', JSON.stringify(globalCloudData.services));
-          return globalCloudData;
-        }
-      }
-    } catch (e) {}
-
-    // 2. Dynamic Firebase Storage SDK fetch
-    try {
-      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-      const { getStorage, ref, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
-      const app = initializeApp({
-        apiKey: "AIzaSyCVSV9cHimnG2PoACuwONHQlfJWx0iTpeQ",
-        projectId: "yakshithnandhtravels",
-        storageBucket: "yakshithnandhtravels.firebasestorage.app"
-      }, 'ClientSyncViewer_' + Math.random().toString(36).substring(7));
-      const storage = getStorage(app);
-      const url = await getDownloadURL(ref(storage, 'cloud_state/travels_data.json'));
-      if (url) {
-        const res = await fetch(url + '&cb=' + Date.now(), { cache: 'no-store' });
-        if (res.ok) {
-          globalCloudData = await res.json();
-          if (globalCloudData) {
-            if (Array.isArray(globalCloudData.fleet)) localStorage.setItem('ynt_fleet', JSON.stringify(globalCloudData.fleet));
-            if (Array.isArray(globalCloudData.destinations)) localStorage.setItem('ynt_destinations', JSON.stringify(globalCloudData.destinations));
-            if (Array.isArray(globalCloudData.trips)) localStorage.setItem('ynt_trips', JSON.stringify(globalCloudData.trips));
-            if (Array.isArray(globalCloudData.services)) localStorage.setItem('ynt_services', JSON.stringify(globalCloudData.services));
-            return globalCloudData;
-          }
-        }
-      }
-    } catch (e) {}
-
-    // 3. Fall back to API snapshot
-    try {
-      const apiRes = await fetch('/api/snapshot', { cache: 'no-store' });
-      if (apiRes.ok) {
-        const s = await apiRes.json();
-        if (s && s.success) {
-          globalCloudData = s;
-          return globalCloudData;
-        }
-      }
-    } catch (e) {}
-
-    return null;
-  };
-
-  // Dynamic Fleet Loader (Loads custom vehicle additions from Firebase Cloud or API)
-  const loadWebsiteFleet = async () => {
-    const grid = document.querySelector('.vehicles-grid');
-    if (!grid) return;
-
-    let fleet = null;
-    try {
-      const cloud = await fetchGlobalCloudData();
-      if (cloud && Array.isArray(cloud.fleet)) {
-        fleet = cloud.fleet;
-      }
-    } catch (e) {}
-
-    if (!fleet) {
-      try {
-        const res = await fetch('/api/fleet');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.fleet) fleet = data.fleet;
-        }
-      } catch (e) {}
-    }
-
-    if (!fleet) {
-      try {
-        const stored = localStorage.getItem('ynt_fleet');
-        if (stored) fleet = JSON.parse(stored);
-      } catch (e) {}
-    }
-
-    if (!fleet || !Array.isArray(fleet)) return;
-
-    if (fleet.length === 0) {
-      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--color-text-muted); font-size:1.1rem;">Fleet updates in progress. Please contact our 24/7 helpline for available cabs.</div>';
-      return;
-    }
-
-    const defaultImg = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80';
-    grid.innerHTML = fleet.map((v, idx) => {
-      const imgUrl = v.image_url || defaultImg;
-      return `
-        <div class="vehicle-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
-          <div class="vehicle-image-wrapper">
-            <img src="${imgUrl}" alt="${v.model_name} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.src='${defaultImg}'">
-            <div class="vehicle-badge-overlay">${v.category || 'Special Fleet'}</div>
-            <div class="vehicle-specs-overlay">${v.capacity || '4 Seater'} • ${v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags')}</div>
-          </div>
-          <div class="vehicle-details">
-            <h3 class="vehicle-name">${v.model_name}</h3>
-            <div class="vehicle-tagline">${v.rate_per_km ? 'Tariff: ' + v.rate_per_km : 'Supreme Comfort & Ghat Mastery'}</div>
-            <p class="vehicle-desc">${v.description || 'Maintained to pristine standards, fully air-conditioned, and equipped with modern safety features for quiet, relaxed travel.'}</p>
-            <div class="vehicle-specs-row">
-              <div class="spec-item">
-                <strong>${v.capacity || '4 Seater'}</strong>
-                <span>Seats</span>
-              </div>
-              <div class="spec-item">
-                <strong>${v.daily_rent || '₹3,500/day'}</strong>
-                <span>Daily Rent</span>
-              </div>
-              <div class="spec-item">
-                <strong>${v.mileage || '14-18 km/l'}</strong>
-                <span>Mileage</span>
-              </div>
-              <div class="spec-item">
-                <strong>${v.airbags || v.luggage_bags || 'Dual Airbags'}</strong>
-                <span>Airbags</span>
-              </div>
-            </div>
-            <div class="vehicle-action-footer">
-              <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${(v.model_name || '').replace(/'/g, "\\'")}')">
-                <span>Enquire Now</span>
-                <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
-                  <path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42L16.86 11H5v2z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  };
-
-  // Dynamic Destinations Loader (Displays custom/updated images on Home Screen)
-  const loadWebsiteDestinations = async () => {
-    const grid = document.querySelector('.destinations-grid');
-    if (!grid) return;
-
-    let dests = null;
-    try {
-      const cloud = await fetchGlobalCloudData();
-      if (cloud && Array.isArray(cloud.destinations)) {
-        dests = cloud.destinations;
-      }
-    } catch (e) {}
-
-    if (!dests) {
-      try {
-        const res = await fetch('/api/destinations');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.destinations) dests = data.destinations;
-        }
-      } catch (e) {}
-    }
-
-    if (!dests) {
-      try {
-        const stored = localStorage.getItem('ynt_destinations');
-        if (stored) dests = JSON.parse(stored);
-      } catch (e) {}
-    }
-
-    if (!dests || !Array.isArray(dests) || dests.length === 0) return;
-
-    const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
-    grid.innerHTML = dests.map((d, idx) => {
-      const imgUrl = d.image_url || defaultDestImg;
-      return `
-        <div class="destination-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
-          <div class="destination-img-box">
-            <img src="${imgUrl}" alt="${d.name} - Yakshith Nandh Travels" class="destination-img" loading="lazy" onerror="this.src='${defaultDestImg}'">
-            <div class="destination-badge">${d.subtitle || 'Divine Abode'}</div>
-          </div>
-          <div class="destination-info">
-            <h3 class="destination-title">${d.name}</h3>
-            <div class="destination-subtitle">${d.subtitle || ''}</div>
-            <p class="destination-desc">${d.description || ''}</p>
-            <div class="destination-footer">
-              <span class="destination-dist">
-                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /></svg>
-                <span>${d.distance || 'Local'} • ${d.duration || 'Half Day'}</span>
-              </span>
-              <button type="button" class="btn btn-primary btn-sm" onclick="selectDestinationForBooking('${(d.name || '').replace(/'/g, "\\'")}', 'Outstation Pilgrimage')">
-                Plan Trip
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  };
-
-  // Dynamic Trips & Tour Packages Loader
-  const loadWebsiteTrips = async () => {
-    const grid = document.querySelector('.trips-grid');
-    if (!grid) return;
-
-    let trips = null;
-    try {
-      const cloud = await fetchGlobalCloudData();
-      if (cloud && Array.isArray(cloud.trips)) {
-        trips = cloud.trips;
-      }
-    } catch (e) {}
-
-    if (!trips) {
-      try {
-        const res = await fetch('/api/trips');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.trips) trips = data.trips;
-        }
-      } catch (e) {}
-    }
-
-    if (!trips) {
-      try {
-        const stored = localStorage.getItem('ynt_trips');
-        if (stored) trips = JSON.parse(stored);
-      } catch (e) {}
-    }
-
-    if (!trips || !Array.isArray(trips) || trips.length === 0) return;
-
-    const defaultTripImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
-    grid.innerHTML = trips.map((t, idx) => {
-      const imgUrl = t.image_url || defaultTripImg;
-
-      // Parse day-wise itinerary
-      const itineraryLines = (t.itinerary || '').split('\n').filter(l => l.trim().length > 0);
-      const dayListHTML = itineraryLines.map((line, dIdx) => {
-        let dayLabel = `Day ${dIdx + 1}`;
-        let content = line;
-        const match = line.match(/^(Day\s*[0-9]+)\s*[:\-]\s*(.*)$/i);
-        if (match) {
-          dayLabel = match[1];
-          content = match[2];
-        }
-        return `
-          <div class="itinerary-day-item">
-            <span class="day-chip">${dayLabel}</span>
-            <span>${content}</span>
-          </div>
-        `;
-      }).join('');
-
-      // Parse vehicle pricing
-      const vehicleItems = (t.vehicle_pricing || '').split('|').map(v => v.trim()).filter(v => v.length > 0);
-      const vehicleGridHTML = vehicleItems.map(item => {
-        const parts = item.split(':');
-        const vName = parts[0] ? parts[0].trim() : item;
-        const vPrice = parts[1] ? parts[1].trim() : '';
-        return `
-          <div class="vehicle-price-pill">
-            <span>${vName}:</span>
-            <strong>${vPrice}</strong>
-          </div>
-        `;
-      }).join('');
-
-      // Parse inclusions checklist
-      const inclusionItems = (t.inclusions || 'Tolls Included, Parkings Included, Driver Wage Included, 24*7 Support').split(',').map(i => i.trim()).filter(i => i.length > 0);
-      const incChecklistHTML = inclusionItems.slice(0, 5).map(inc => {
-        return `<span class="inc-check-tag">✓ ${inc.replace(/^✓\s*/, '')}</span>`;
-      }).join('');
-
-      return `
-        <div class="trip-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
-          <div class="trip-card-image-box">
-            <img src="${imgUrl}" alt="${t.title} - Yakshith Nandh Travels" loading="lazy" onerror="this.src='${defaultTripImg}'">
-            <span class="trip-duration-badge">📅 ${t.duration_days || '1 Day'}</span>
-            <span class="trip-all-inc-badge">✓ All-Inclusive</span>
-          </div>
-          <div class="trip-card-body">
-            <h3 class="trip-card-title">${t.title}</h3>
-            <div class="trip-card-subtitle">${t.subtitle || 'Divine Pilgrimage Circuit'}</div>
-
-            <div class="trip-itinerary-box">
-              <div class="itinerary-heading">📍 Day-Wise Itinerary:</div>
-              <div class="itinerary-day-list">
-                ${dayListHTML || '<div style="font-size:0.85rem;color:var(--color-text-muted);">Customizable temple darshan itinerary with ghat road driver.</div>'}
-              </div>
-            </div>
-
-            <div class="trip-pricing-table">
-              <div class="pricing-table-heading">
-                <span>🚗 Vehicles & Pricing</span>
-                <span style="font-size:0.72rem; color:var(--color-accent-gold-dark);">All-Inclusive Fare</span>
-              </div>
-              <div class="vehicle-price-grid">
-                ${vehicleGridHTML || '<div class="vehicle-price-pill"><span>Standard Fleet:</span><strong>Best Price</strong></div>'}
-              </div>
-            </div>
-
-            <div class="trip-inclusions-checklist">
-              ${incChecklistHTML}
-            </div>
-
-            <div class="trip-card-footer">
-              <div class="starting-price-box">
-                <span class="price-label">Starting From</span>
-                <span class="price-val">${t.starting_price || 'Best Fare'}</span>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm" onclick="selectTripForBooking('${(t.title || '').replace(/'/g, "\\'")}', '${(t.duration_days || 'Tour Package').replace(/'/g, "\\'")}')">
-                Book This Trip
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  };
-
-  loadWebsiteFleet();
-  loadWebsiteDestinations();
-  loadWebsiteTrips();
   checkAdminAccess();
 });

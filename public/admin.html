@@ -1105,6 +1105,13 @@
           <input type="text" id="editServiceName" class="form-control" required>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Visibility Status:</label>
+          <select id="editServiceStatus" class="form-control">
+            <option value="1">🟢 Published (Visible on Public Website)</option>
+            <option value="0">🟡 Draft (Hidden from Public)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label">Starting Price Tag:</label>
           <input type="text" id="editServicePrice" class="form-control" placeholder="e.g. ₹1,499" required>
         </div>
@@ -1140,6 +1147,13 @@
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label">Category:</label>
           <input type="text" id="veh_category" class="form-control" placeholder="e.g. Luxury SUV / Executive Sedan" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Visibility Status:</label>
+          <select id="veh_status" class="form-control">
+            <option value="1">🟢 Published (Visible on Public Website)</option>
+            <option value="0">🟡 Draft (Hidden from Public)</option>
+          </select>
         </div>
 
         <!-- Vehicle Image Upload with Firebase Storage -->
@@ -1211,6 +1225,13 @@
           <label class="form-label">Spiritual / Heritage Subtitle:</label>
           <input type="text" id="dest_subtitle" class="form-control" placeholder="e.g. Abode of Lord Sri Venkateswara" required>
         </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Visibility Status:</label>
+          <select id="dest_status" class="form-control">
+            <option value="1">🟢 Published (Visible on Public Website)</option>
+            <option value="0">🟡 Draft (Hidden from Public)</option>
+          </select>
+        </div>
 
         <!-- Destination Photo Upload with Firebase Storage & Instant Preview -->
         <div class="form-group" style="margin-bottom:12px;">
@@ -1279,6 +1300,14 @@
             <label class="form-label">Starting Price (₹):</label>
             <input type="text" id="trip_price" class="form-control" placeholder="e.g. ₹5,499" required>
           </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Visibility Status:</label>
+          <select id="trip_status" class="form-control">
+            <option value="1">🟢 Published (Visible on Public Website)</option>
+            <option value="0">🟡 Draft (Hidden from Public)</option>
+          </select>
         </div>
 
         <!-- Trip Cover Photo Upload -->

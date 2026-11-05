@@ -319,6 +319,62 @@ const memoryStore = {
   nextContactId: 1
 };
 
+// State file persistence helpers (Survives serverless cold starts)
+const STATE_FILE_PATHS = [
+  path.join(__dirname, 'data', 'travels_state.json'),
+  path.join(os.tmpdir(), 'travels_state.json')
+];
+
+function persistStateToFile() {
+  try {
+    const payload = {
+      settings: memoryStore.settings,
+      services: memoryStore.services,
+      fleet: memoryStore.fleet,
+      destinations: memoryStore.destinations,
+      trips: memoryStore.trips,
+      bookings: memoryStore.bookings,
+      contacts: memoryStore.contacts,
+      updated_at: new Date().toISOString()
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
+    for (const fp of STATE_FILE_PATHS) {
+      try {
+        const dir = path.dirname(fp);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(fp, jsonStr, 'utf8');
+        break;
+      } catch (err) {}
+    }
+  } catch (outer) {}
+}
+
+function loadStateFromFile() {
+  for (const fp of STATE_FILE_PATHS) {
+    try {
+      if (fs.existsSync(fp)) {
+        const raw = fs.readFileSync(fp, 'utf8');
+        const data = JSON.parse(raw);
+        if (data && typeof data === 'object') {
+          if (Array.isArray(data.fleet) && data.fleet.length > 0) memoryStore.fleet = data.fleet;
+          if (Array.isArray(data.destinations) && data.destinations.length > 0) memoryStore.destinations = data.destinations;
+          if (Array.isArray(data.trips) && data.trips.length > 0) memoryStore.trips = data.trips;
+          if (Array.isArray(data.services) && data.services.length > 0) memoryStore.services = data.services;
+          if (Array.isArray(data.bookings) && data.bookings.length > 0) memoryStore.bookings = data.bookings;
+          if (Array.isArray(data.contacts)) memoryStore.contacts = data.contacts;
+          if (data.settings && typeof data.settings === 'object') memoryStore.settings = { ...memoryStore.settings, ...data.settings };
+          console.log('📦 Hydrated database state from persisted state file:', fp);
+          return true;
+        }
+      }
+    } catch (err) {}
+  }
+  return false;
+}
+
+// Attempt immediate state hydration on module load
+loadStateFromFile();
+
 // ==========================================================================
 // SQLITE INITIALIZATION (Graceful Fallback)
 // ==========================================================================
@@ -483,7 +539,46 @@ function initSqliteTables() {
   safeAlter(`ALTER TABLE fleet ADD COLUMN airbags TEXT;`);
   safeAlter(`ALTER TABLE fleet ADD COLUMN daily_rent TEXT;`);
   safeAlter(`ALTER TABLE fleet ADD COLUMN mileage TEXT;`);
+  safeAlter(`ALTER TABLE fleet ADD COLUMN is_published INTEGER DEFAULT 1;`);
   safeAlter(`ALTER TABLE destinations ADD COLUMN image_url TEXT;`);
+  safeAlter(`ALTER TABLE destinations ADD COLUMN is_published INTEGER DEFAULT 1;`);
+  safeAlter(`ALTER TABLE trips ADD COLUMN is_published INTEGER DEFAULT 1;`);
+  safeAlter(`ALTER TABLE services ADD COLUMN is_published INTEGER DEFAULT 1;`);
+
+  // Migration: Ensure 'Sacred' is updated to 'Divine' in existing SQLite rows
+  try {
+    db.exec(`
+      UPDATE destinations SET description = REPLACE(description, 'Sacred', 'Divine') WHERE description LIKE '%Sacred%';
+      UPDATE destinations SET subtitle = REPLACE(subtitle, 'Sacred', 'Divine') WHERE subtitle LIKE '%Sacred%';
+      UPDATE destinations SET name = REPLACE(name, 'Sacred', 'Divine') WHERE name LIKE '%Sacred%';
+      UPDATE trips SET title = REPLACE(title, 'Sacred', 'Divine') WHERE title LIKE '%Sacred%';
+      UPDATE trips SET subtitle = REPLACE(subtitle, 'Sacred', 'Divine') WHERE subtitle LIKE '%Sacred%';
+      UPDATE trips SET itinerary = REPLACE(itinerary, 'Sacred', 'Divine') WHERE itinerary LIKE '%Sacred%';
+      UPDATE services SET description = REPLACE(description, 'Sacred', 'Divine') WHERE description LIKE '%Sacred%';
+    `);
+
+    // Backfill any null images, rent, airbags or mileage in existing SQLite rows
+    const updateFleetStmt = db.prepare(`
+      UPDATE fleet
+      SET image_url = CASE WHEN image_url IS NULL OR image_url = '' THEN ? ELSE image_url END,
+          airbags = CASE WHEN airbags IS NULL OR airbags = '' THEN ? ELSE airbags END,
+          daily_rent = CASE WHEN daily_rent IS NULL OR daily_rent = '' THEN ? ELSE daily_rent END,
+          mileage = CASE WHEN mileage IS NULL OR mileage = '' THEN ? ELSE mileage END
+      WHERE id = ?
+    `);
+    for (const f of DEFAULT_FLEET) {
+      updateFleetStmt.run(f.image_url, f.airbags, f.daily_rent, f.mileage, f.id);
+    }
+
+    const updateDestStmt = db.prepare(`
+      UPDATE destinations
+      SET image_url = CASE WHEN image_url IS NULL OR image_url = '' THEN ? ELSE image_url END
+      WHERE id = ?
+    `);
+    for (const d of DEFAULT_DESTINATIONS) {
+      updateDestStmt.run(d.image_url, d.id);
+    }
+  } catch (e) {}
 }
 
 /**
@@ -1263,12 +1358,15 @@ function updateSettings(settingsMap) {
 // ==========================================================================
 function getFullSnapshot() {
   return {
+    success: true,
     settings: getSettings(),
     services: getAllServices(),
     fleet: getFleet(),
     destinations: getAllDestinations(),
     trips: getAllTrips(),
-    bookings: getAllBookings()
+    bookings: getAllBookings(),
+    contacts: getAllContactInquiries(),
+    updated_at: new Date().toISOString()
   };
 }
 
@@ -1285,9 +1383,16 @@ function setFullState(data) {
   if (data.services && Array.isArray(data.services)) {
     memoryStore.services = JSON.parse(JSON.stringify(data.services));
   }
+  if (data.bookings && Array.isArray(data.bookings)) {
+    memoryStore.bookings = JSON.parse(JSON.stringify(data.bookings));
+  }
+  if (data.contacts && Array.isArray(data.contacts)) {
+    memoryStore.contacts = JSON.parse(JSON.stringify(data.contacts));
+  }
   if (data.settings && typeof data.settings === 'object') {
     memoryStore.settings = { ...memoryStore.settings, ...data.settings };
   }
+  persistStateToFile();
   return getFullSnapshot();
 }
 
