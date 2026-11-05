@@ -52,7 +52,7 @@ function parseRequestBody(req) {
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
-      if (body.length > 1e6) {
+      if (body.length > 25 * 1024 * 1024) {
         req.destroy();
         reject(new Error('Payload too large'));
       }
@@ -651,6 +651,132 @@ async function handleRequest(req, res) {
     } catch (err) {
       return sendJSON(res, 500, { success: false, error: err.message });
     }
+  }
+
+  // Same-Origin Image Upload: POST /api/upload (Zero CORS delay, persists to disk & in-memory store)
+  if (pathname === '/api/upload' && method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const rawData = body.image_data || body.dataUrl || body.data;
+      if (!rawData) {
+        return sendJSON(res, 400, { success: false, error: 'No image data provided.' });
+      }
+
+      let ext = '.jpg';
+      let mime = 'image/jpeg';
+      let buffer;
+
+      if (typeof rawData === 'string' && rawData.startsWith('data:')) {
+        const matches = rawData.match(/^data:([A-Za-z0-9\/\-+.]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          mime = matches[1];
+          if (mime.includes('png')) ext = '.png';
+          else if (mime.includes('webp')) ext = '.webp';
+          else if (mime.includes('svg')) ext = '.svg';
+          buffer = Buffer.from(matches[2], 'base64');
+        } else {
+          buffer = Buffer.from(rawData, 'utf-8');
+        }
+      } else if (typeof rawData === 'string') {
+        buffer = Buffer.from(rawData, 'base64');
+      } else if (Buffer.isBuffer(rawData)) {
+        buffer = rawData;
+      }
+
+      const rawName = (body.filename || `photo_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '');
+      const safeName = rawName.includes('.') ? rawName : `${rawName}${ext}`;
+
+      // 1. Save to public/uploads
+      try {
+        const uploadsDir = path.join(PUBLIC_DIR, 'uploads');
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        fs.writeFileSync(path.join(uploadsDir, safeName), buffer);
+      } catch (err) {}
+
+      // 2. Save to /tmp/ynt_uploads for serverless environment
+      try {
+        const tmpDir = path.join(os.tmpdir(), 'ynt_uploads');
+        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+        fs.writeFileSync(path.join(tmpDir, safeName), buffer);
+      } catch (err) {}
+
+      // 3. Store in memory store
+      if (db.storeUploadedImage) {
+        db.storeUploadedImage(safeName, buffer, mime);
+      }
+
+      return sendJSON(res, 200, {
+        success: true,
+        filename: safeName,
+        url: `/uploads/${safeName}`
+      });
+    } catch (err) {
+      return sendJSON(res, 500, { success: false, error: err.message });
+    }
+  }
+
+  // Uploaded Image Serving: /uploads/* or /api/uploads/*
+  if ((pathname.startsWith('/uploads/') || pathname.startsWith('/api/uploads/')) && (method === 'GET' || method === 'HEAD')) {
+    const rawFile = path.basename(pathname);
+    const safeFile = rawFile.replace(/[^a-zA-Z0-9._-]/g, '');
+    const ext = path.extname(safeFile).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'image/jpeg';
+
+    if (method === 'HEAD') {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end();
+    }
+
+    // 1. Check public/uploads
+    const diskPath = path.join(PUBLIC_DIR, 'uploads', safeFile);
+    if (fs.existsSync(diskPath)) {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return fs.readFile(diskPath, (err, data) => res.end(data || ''));
+    }
+
+    // 2. Check /tmp/ynt_uploads
+    const tmpPath = path.join(os.tmpdir(), 'ynt_uploads', safeFile);
+    if (fs.existsSync(tmpPath)) {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return fs.readFile(tmpPath, (err, data) => res.end(data || ''));
+    }
+
+    // 3. Check memory store
+    const memImg = db.getUploadedImage ? db.getUploadedImage(safeFile) : null;
+    if (memImg && memImg.buffer) {
+      res.writeHead(200, {
+        'Content-Type': memImg.mime || contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end(memImg.buffer);
+    }
+
+    // 4. Check root uploads folder fallback
+    const rootUploadsPath = path.join(__dirname, 'uploads', safeFile);
+    if (fs.existsSync(rootUploadsPath)) {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return fs.readFile(rootUploadsPath, (err, data) => res.end(data || ''));
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    return res.end('Image not found');
   }
 
   // ==========================================================================

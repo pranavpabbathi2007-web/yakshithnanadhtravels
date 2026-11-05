@@ -6,20 +6,12 @@
 
 import {
   db,
-  storage,
   doc,
   getDoc,
   setDoc,
   updateDoc,
   onSnapshot
 } from './firebase-config.js';
-import {
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-
-const FIREBASE_CLOUD_DATA_URL = 'https://firebasestorage.googleapis.com/v0/b/yakshithnandhtravels.firebasestorage.app/o/cloud_state%2Ftravels_data.json?alt=media';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -76,24 +68,17 @@ async function syncStateToFirebaseCloud() {
   } catch (apiErr) {
     console.warn('API sync-state note:', apiErr.message);
   }
-
-  // 4. Backup sync to Firebase Cloud Storage
-  try {
-    const jsonBlob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-    const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
-    await uploadBytes(cloudRef, jsonBlob);
-    console.log('☁️ Synced updated data snapshot to Firebase Cloud Storage.');
-  } catch (err) {
-    console.warn('Firebase Cloud storage backup note:', err.message);
-  }
 }
 
 async function initAdminCloudState() {
-  // 1. First priority: Cloud Firestore single source of truth
+  // 1. First priority: Cloud Firestore single source of truth with 2.5s safety timeout
   try {
     const docRef = doc(db, 'site_content', 'data');
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
+    const snap = await Promise.race([
+      getDoc(docRef),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 2500))
+    ]);
+    if (snap && snap.exists && snap.exists()) {
       const cData = snap.data();
       if (cData) {
         if (Array.isArray(cData.fleet)) { allFleetData = cData.fleet; setStorage('fleet', allFleetData); }
@@ -109,12 +94,12 @@ async function initAdminCloudState() {
       allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
       allTripsData = getStorage('trips', SEED_DATA.trips);
       allServicesData = getStorage('services', SEED_DATA.services);
-      await syncStateToFirebaseCloud();
+      syncStateToFirebaseCloud().catch(() => {});
     }
 
     // Subscribe to live Firestore updates from other admin sessions
     onSnapshot(docRef, (liveSnap) => {
-      if (liveSnap.exists()) {
+      if (liveSnap && liveSnap.exists && liveSnap.exists()) {
         const liveData = liveSnap.data();
         if (liveData && liveData.updated_at) {
           if (Array.isArray(liveData.fleet)) allFleetData = liveData.fleet;
@@ -130,7 +115,7 @@ async function initAdminCloudState() {
     console.warn('Firestore initialization note:', err.message);
   }
 
-  // 2. Fallback: API server snapshot
+  // 2. Fallback: Fast API server snapshot
   try {
     const apiRes = await fetch('/api/snapshot');
     if (apiRes.ok) {
@@ -145,25 +130,6 @@ async function initAdminCloudState() {
       }
     }
   } catch (apiErr) {}
-
-  // 3. Fallback: Firebase Storage JSON
-  try {
-    const cloudRef = storageRef(storage, 'cloud_state/travels_data.json');
-    const downloadUrl = await getDownloadURL(cloudRef);
-    if (downloadUrl) {
-      const res = await fetch(downloadUrl + '&cb=' + Date.now());
-      if (res.ok) {
-        const cData = await res.json();
-        if (cData) {
-          if (Array.isArray(cData.fleet)) { allFleetData = cData.fleet; setStorage('fleet', allFleetData); }
-          if (Array.isArray(cData.destinations)) { allDestinationsData = cData.destinations; setStorage('destinations', allDestinationsData); }
-          if (Array.isArray(cData.trips)) { allTripsData = cData.trips; setStorage('trips', allTripsData); }
-          if (Array.isArray(cData.services)) { allServicesData = cData.services; setStorage('services', allServicesData); }
-          return true;
-        }
-      }
-    }
-  } catch (e) {}
 
   allFleetData = getStorage('fleet', SEED_DATA.fleet);
   allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
@@ -481,6 +447,41 @@ function compressVehicleImage(file) {
   });
 }
 
+/**
+ * Same-Origin Image Uploader
+ * Sends compressed image to /api/upload (zero CORS delays, fast local/tmp persistence)
+ * Returns { url, dataUrl }
+ */
+async function uploadImageToServer(file, folder = 'uploads') {
+  if (!file) return null;
+  const compressed = await compressVehicleImage(file);
+  const cleanBase = (file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '');
+  const filename = `${Date.now()}_${cleanBase}`;
+
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: filename,
+        image_data: compressed.dataUrl,
+        folder: folder
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.url) {
+        return { url: data.url, dataUrl: compressed.dataUrl };
+      }
+    }
+  } catch (err) {
+    console.warn('API upload fallback note:', err.message);
+  }
+
+  // Resilient fallback: return compressed dataUrl with zero network stall
+  return { url: compressed.dataUrl, dataUrl: compressed.dataUrl };
+}
+
 let currentStatusFilter = 'All';
 let currentSearchTerm = '';
 let allServicesData = [];
@@ -726,37 +727,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('veh_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Optimizing photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
 
-      // 1. Immediately compress & set urlInput so new photo is ready immediately!
-      const compressed = await compressVehicleImage(file);
-      if (previewImg) previewImg.src = compressed.dataUrl;
-      if (urlInput) urlInput.value = compressed.dataUrl;
-      if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
-
-      // 2. Upload to Firebase Cloud Storage with 4-second timeout
-      try {
-        const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
-        const fileRef = storageRef(storage, `vehicles/${filename}`);
-
-        const uploadTask = (async () => {
-          const snapshot = await uploadBytes(fileRef, compressed.blob);
-          return await getDownloadURL(snapshot.ref);
-        })();
-
-        const timeoutTask = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), 4000)
-        );
-
-        const downloadUrl = await Promise.race([uploadTask, timeoutTask]);
-        if (downloadUrl) {
-          if (urlInput) urlInput.value = downloadUrl;
-          if (previewImg) previewImg.src = downloadUrl;
-          if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
-        }
-      } catch (uploadErr) {
-        console.warn('Firebase Storage upload note:', uploadErr.message);
-        if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
+      const uploaded = await uploadImageToServer(file, 'vehicles');
+      if (uploaded) {
+        if (previewImg) previewImg.src = uploaded.url || uploaded.dataUrl;
+        if (urlInput) urlInput.value = uploaded.url;
+        if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
       }
     });
   }
@@ -774,8 +751,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const pickedFile = vehicleImageFile && vehicleImageFile.files && vehicleImageFile.files[0];
       let imageUrl = document.getElementById('veh_image_url').value.trim();
       if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
-        const compressed = await compressVehicleImage(pickedFile);
-        imageUrl = compressed.dataUrl;
+        const uploaded = await uploadImageToServer(pickedFile, 'vehicles');
+        imageUrl = uploaded ? uploaded.url : '';
         document.getElementById('veh_image_url').value = imageUrl;
       }
 
@@ -858,37 +835,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('dest_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Optimizing photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
 
-      // 1. Immediately compress & set urlInput so new photo is ready immediately!
-      const compressed = await compressVehicleImage(file);
-      if (previewImg) previewImg.src = compressed.dataUrl;
-      if (urlInput) urlInput.value = compressed.dataUrl;
-      if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
-
-      // 2. Upload to Firebase Cloud Storage with 4-second timeout
-      try {
-        const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
-        const fileRef = storageRef(storage, `destinations/${filename}`);
-
-        const uploadTask = (async () => {
-          const snapshot = await uploadBytes(fileRef, compressed.blob);
-          return await getDownloadURL(snapshot.ref);
-        })();
-
-        const timeoutTask = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), 4000)
-        );
-
-        const downloadUrl = await Promise.race([uploadTask, timeoutTask]);
-        if (downloadUrl) {
-          if (urlInput) urlInput.value = downloadUrl;
-          if (previewImg) previewImg.src = downloadUrl;
-          if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
-        }
-      } catch (uploadErr) {
-        console.warn('Firebase Storage destination upload note:', uploadErr.message);
-        if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
+      const uploaded = await uploadImageToServer(file, 'destinations');
+      if (uploaded) {
+        if (previewImg) previewImg.src = uploaded.url || uploaded.dataUrl;
+        if (urlInput) urlInput.value = uploaded.url;
+        if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
       }
     });
   }
@@ -901,8 +854,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const destFile = destinationImageFile && destinationImageFile.files && destinationImageFile.files[0];
       let imageUrl = document.getElementById('dest_image_url').value.trim();
       if (destFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
-        const compressed = await compressVehicleImage(destFile);
-        imageUrl = compressed.dataUrl;
+        const uploaded = await uploadImageToServer(destFile, 'destinations');
+        imageUrl = uploaded ? uploaded.url : '';
         document.getElementById('dest_image_url').value = imageUrl;
       }
 
@@ -969,35 +922,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('trip_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Optimizing photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
 
-      const compressed = await compressVehicleImage(file);
-      if (previewImg) previewImg.src = compressed.dataUrl;
-      if (urlInput) urlInput.value = compressed.dataUrl;
-      if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
-
-      try {
-        const filename = `${Date.now()}_trip_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
-        const fileRef = storageRef(storage, `trips/${filename}`);
-
-        const uploadTask = (async () => {
-          const snapshot = await uploadBytes(fileRef, compressed.blob);
-          return await getDownloadURL(snapshot.ref);
-        })();
-
-        const timeoutTask = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), 4000)
-        );
-
-        const downloadUrl = await Promise.race([uploadTask, timeoutTask]);
-        if (downloadUrl) {
-          if (urlInput) urlInput.value = downloadUrl;
-          if (previewImg) previewImg.src = downloadUrl;
-          if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
-        }
-      } catch (uploadErr) {
-        console.warn('Firebase Storage upload note:', uploadErr.message);
-        if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
+      const uploaded = await uploadImageToServer(file, 'trips');
+      if (uploaded) {
+        if (previewImg) previewImg.src = uploaded.url || uploaded.dataUrl;
+        if (urlInput) urlInput.value = uploaded.url;
+        if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
       }
     });
   }
@@ -1015,8 +946,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const pickedFile = tripImageFile && tripImageFile.files && tripImageFile.files[0];
       let imageUrl = document.getElementById('trip_image_url').value.trim();
       if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
-        const compressed = await compressVehicleImage(pickedFile);
-        imageUrl = compressed.dataUrl;
+        const uploaded = await uploadImageToServer(pickedFile, 'trips');
+        imageUrl = uploaded ? uploaded.url : '';
         document.getElementById('trip_image_url').value = imageUrl;
       }
 

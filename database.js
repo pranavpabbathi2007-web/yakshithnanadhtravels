@@ -311,6 +311,7 @@ const memoryStore = {
   trips: JSON.parse(JSON.stringify(DEFAULT_TRIPS)),
   bookings: JSON.parse(JSON.stringify(DEFAULT_BOOKINGS)),
   contacts: [],
+  images: {},
   nextBookingId: 5,
   nextServiceId: 5,
   nextFleetId: 4,
@@ -1396,6 +1397,22 @@ function setFullState(data) {
   return getFullSnapshot();
 }
 
+function storeUploadedImage(filename, buffer, mime) {
+  if (!memoryStore.images) memoryStore.images = {};
+  memoryStore.images[filename] = {
+    buffer: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer),
+    mime: mime || 'image/jpeg',
+    created_at: Date.now()
+  };
+}
+
+function getUploadedImage(filename) {
+  if (memoryStore.images && memoryStore.images[filename]) {
+    return memoryStore.images[filename];
+  }
+  return null;
+}
+
 module.exports = {
   createBooking,
   getBookingById,
@@ -1429,5 +1446,7 @@ module.exports = {
   getSettings,
   updateSettings,
   getFullSnapshot,
-  setFullState
+  setFullState,
+  storeUploadedImage,
+  getUploadedImage
 };
