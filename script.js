@@ -909,81 +909,10 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     if (!document.hidden) fetchLatestSnapshot();
   });
 
-  // ==========================================================================
-  // ADMIN LIVE PREVIEW CONTROLS (When logged in or ?admin=1)
-  // ==========================================================================
-  const checkAdminAccess = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasAdminParam = urlParams.get('admin') === '1' || urlParams.get('admin') === 'true';
-    const hasAdminStorage = localStorage.getItem('ynt_admin_active') === '1' || localStorage.getItem('ynt_admin_token');
-
-    if (hasAdminParam) {
-      localStorage.setItem('ynt_admin_active', '1');
-    }
-
-    if (hasAdminParam || hasAdminStorage) {
-      injectAdminLiveBar();
-      injectSectionEditButtons();
-    }
-  };
-
-  const injectAdminLiveBar = () => {
-    if (document.getElementById('adminLiveBar')) return;
-
-    const bar = document.createElement('div');
-    bar.id = 'adminLiveBar';
-    bar.style.cssText = 'background:#7B263A; color:#FFF9F0; border-bottom:2px solid #C49A52; padding:8px 0; font-size:0.85rem; position:sticky; top:0; z-index:10001; box-shadow:0 4px 12px rgba(0,0,0,0.2);';
-    bar.innerHTML = `
-      <div class="container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="background:#C49A52; color:#392B27; font-weight:800; font-size:0.72rem; padding:2px 8px; border-radius:999px;">👑 ADMIN ACCESS ACTIVE</span>
-          <span>Changes made in admin panel sync automatically to this live page</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <a href="/admin.html?view=bookings" target="_blank" class="btn btn-sm" style="background:#FFF9F0; color:#7B263A; padding:4px 10px; font-size:0.76rem; font-weight:bold;">Dispatch Console</a>
-          <a href="/admin.html?view=services" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Services</a>
-          <a href="/admin.html?view=fleet" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Fleet</a>
-          <a href="/admin.html?view=destinations" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Destinations</a>
-          <a href="/admin.html?view=trips" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Trips</a>
-          <a href="/admin.html?view=settings" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.18); color:#FFF; padding:4px 10px; font-size:0.76rem;">Edit Settings</a>
-          <button id="exitAdminBtn" style="background:transparent; border:1px solid #C49A52; color:#FFF; font-size:0.75rem; padding:4px 8px; border-radius:4px; cursor:pointer;">Exit</button>
-        </div>
-      </div>
-    `;
-    document.body.prepend(bar);
-
-    document.getElementById('exitAdminBtn').addEventListener('click', () => {
-      localStorage.removeItem('ynt_admin_active');
-      window.location.href = window.location.pathname;
-    });
-  };
-
-  const injectSectionEditButtons = () => {
-    const sectionMappings = [
-      { id: 'services', view: 'services', label: 'Edit Services' },
-      { id: 'vehicles', view: 'fleet', label: 'Edit Vehicles' },
-      { id: 'destinations', view: 'destinations', label: 'Edit Destinations' },
-      { id: 'trips', view: 'trips', label: 'Edit Trips & Packages' },
-      { id: 'booking', view: 'bookings', label: 'Manage Bookings' },
-      { id: 'contact', view: 'messages', label: 'View Inquiries' }
-    ];
-
-    sectionMappings.forEach(m => {
-      const section = document.getElementById(m.id);
-      if (section) {
-        const header = section.querySelector('.section-header');
-        if (header && !header.querySelector('.admin-section-edit-btn')) {
-          const editBtn = document.createElement('a');
-          editBtn.href = `/admin.html?view=${m.view}`;
-          editBtn.target = '_blank';
-          editBtn.className = 'admin-section-edit-btn';
-          editBtn.style.cssText = 'display:inline-flex; align-items:center; gap:5px; background:#7B263A; color:#FFF9F0; border:1px solid #C49A52; padding:3px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; text-decoration:none; margin-top:8px; box-shadow:0 2px 6px rgba(0,0,0,0.15);';
-          editBtn.innerHTML = `✏️ ${m.label} in Admin`;
-          header.appendChild(editBtn);
-        }
-      }
-    });
-  };
-
-  checkAdminAccess();
+  // Ensure any previous admin live bar is removed
+  const legacyBar = document.getElementById('adminLiveBar');
+  if (legacyBar) legacyBar.remove();
+  try {
+    localStorage.removeItem('ynt_admin_active');
+  } catch (e) {}
 });
