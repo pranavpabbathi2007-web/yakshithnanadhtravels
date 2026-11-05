@@ -663,6 +663,7 @@
           <a href="/?view=services" target="_blank" class="jump-pill">🛠️ Services (4)</a>
           <a href="/?view=vehicles" target="_blank" class="jump-pill">🚗 Our Vehicles</a>
           <a href="/?view=destinations" target="_blank" class="jump-pill">🏛️ Sacred Destinations</a>
+          <a href="/?view=trips" target="_blank" class="jump-pill">🗺️ Trips & Packages</a>
           <a href="/?view=why-choose-us" target="_blank" class="jump-pill">⭐ Trust Pillars</a>
           <a href="/?view=booking" target="_blank" class="jump-pill">📝 Booking Form</a>
           <a href="/?view=contact" target="_blank" class="jump-pill">📞 Contact & Helplines</a>
@@ -695,14 +696,19 @@
         <span>4. Destinations (5)</span>
       </button>
 
+      <button class="admin-tab-btn" data-view="trips-view" role="tab">
+        <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+        <span>5. Trips & Packages (<span id="tabTripsCount">4</span>)</span>
+      </button>
+
       <button class="admin-tab-btn" data-view="messages-view" role="tab">
         <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-        <span>5. Customer Messages & Callbacks</span>
+        <span>6. Customer Messages & Callbacks</span>
       </button>
 
       <button class="admin-tab-btn" data-view="settings-view" role="tab">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-        <span>6. Brand & Helpline Settings</span>
+        <span>7. Brand & Helpline Settings</span>
       </button>
     </div>
 
@@ -839,7 +845,42 @@
     </div>
 
     <!-- ======================================================================
-         VIEW 5: CUSTOMER MESSAGES & CALLBACKS
+         VIEW 5: TRIPS & TOUR PACKAGES (MULTI-DAY ITINERARIES)
+         ====================================================================== -->
+    <div id="trips-view" class="admin-view-panel">
+      <!-- Included Guarantees Strip -->
+      <div style="background:linear-gradient(135deg, #FFF9F0 0%, #FFF3E0 100%); border:1.5px solid var(--color-border-gold); border-radius:var(--radius-md); padding:12px 18px; margin-bottom:1.5rem; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font-weight:700; color:var(--color-primary); font-size:0.88rem; display:flex; align-items:center; gap:6px;">
+          <span>👑 Guaranteed Package Inclusions:</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:0.78rem; font-weight:700;">
+          <span style="background:#FFFFFF; border:1px solid #E0D5C1; padding:4px 10px; border-radius:999px; color:#2E7D32;">🛣️ Tolls Included</span>
+          <span style="background:#FFFFFF; border:1px solid #E0D5C1; padding:4px 10px; border-radius:999px; color:#2E7D32;">🅿️ Parkings Included</span>
+          <span style="background:#FFFFFF; border:1px solid #E0D5C1; padding:4px 10px; border-radius:999px; color:#2E7D32;">👨‍✈️ Driver Wage Included</span>
+          <span style="background:#FFFFFF; border:1px solid #E0D5C1; padding:4px 10px; border-radius:999px; color:#2E7D32;">🏛️ Border Tax Included</span>
+          <span style="background:#FFFFFF; border:1px solid #E0D5C1; padding:4px 10px; border-radius:999px; color:var(--color-primary);">📞 24*7 Support</span>
+          <span style="background:#FFFFFF; border:1px solid #E0D5C1; padding:4px 10px; border-radius:999px; color:var(--color-primary);">🏷️ Best Price Guaranteed</span>
+        </div>
+      </div>
+
+      <div class="section-control-header">
+        <div>
+          <h2 style="font-size:1.35rem; color:var(--color-primary); margin:0;">Trips & Multi-Day Pilgrimage Tour Packages</h2>
+          <span style="font-size:0.82rem; color:var(--color-text-muted);">Manage multi-day itineraries, day-wise destinations, vehicle pricing & transparent package inclusions</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openAddTripModal()">+ Add New Trip Package</button>
+          <a href="/?view=trips" target="_blank" class="btn btn-secondary btn-sm">Preview Trips on Site ↗</a>
+        </div>
+      </div>
+
+      <div id="tripsCardsContainer" class="cards-grid-admin">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         VIEW 6: CUSTOMER MESSAGES & CALLBACKS
          ====================================================================== -->
     <div id="messages-view" class="admin-view-panel">
       <div class="section-control-header">
@@ -1208,7 +1249,89 @@
     </div>
   </div>
 
-  <!-- 7. Record Customer Callback / Inquiry Modal -->
+  <!-- 7. Trip & Tour Package Add / Edit Modal -->
+  <div id="tripModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:620px;">
+      <div class="modal-header">
+        <h3 id="tripModalTitle">Trip & Tour Package Details</h3>
+        <button type="button" class="modal-close-btn" onclick="closeTripModal()">&times;</button>
+      </div>
+      <form id="tripForm">
+        <input type="hidden" id="tripId">
+
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Package Title / Name:</label>
+            <input type="text" id="trip_title" class="form-control" placeholder="e.g. 3 Days Complete Divya Kshetra Pilgrimage" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Number of Days / Nights:</label>
+            <input type="text" id="trip_duration" class="form-control" placeholder="e.g. 3 Days / 2 Nights or 1 Day" required>
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Subtitle / Route Tagline:</label>
+            <input type="text" id="trip_subtitle" class="form-control" placeholder="e.g. Tirumala Balaji • Sri Kalahasti • Kanipakam" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Starting Price (₹):</label>
+            <input type="text" id="trip_price" class="form-control" placeholder="e.g. ₹5,499" required>
+          </div>
+        </div>
+
+        <!-- Trip Cover Photo Upload -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Package Cover Photo / Image:</label>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="file" id="trip_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
+            <div id="trip_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
+              <img id="trip_image_preview" src="" alt="Trip Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+              <div style="flex:1;">
+                <div id="trip_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
+                <div style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Firebase Cloud & Displayed on Home Screen</div>
+              </div>
+            </div>
+            <input type="text" id="trip_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+        </div>
+
+        <!-- Day-wise Itinerary -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Day-Wise Itinerary (Places Visited Each Day):</label>
+          <textarea id="trip_itinerary" class="form-control" rows="4" placeholder="Day 1: Tirumala Hill Temple, Balaji Darshan, Silathoranam, Chakra Theertham&#10;Day 2: Sri Kalahasti Rahu-Ketu Kshetra, Tiruchanur Padmavathi Temple&#10;Day 3: Kanipakam Vinayaka Swamy, Vellore Golden Temple, return drop." required></textarea>
+          <small style="font-size:0.75rem; color:var(--color-text-muted);">Enter Day 1, Day 2, Day 3 on separate lines for automatic day-tag formatting.</small>
+        </div>
+
+        <!-- Vehicles and Prices -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Vehicles & Package Pricing:</label>
+          <textarea id="trip_vehicle_pricing" class="form-control" rows="3" placeholder="Sedan (Dzire / Etios): ₹5,499 | SUV (Innova): ₹7,999 | Luxury (Innova Crysta): ₹9,499 | Tempo (12 Seater): ₹13,999" required></textarea>
+          <small style="font-size:0.75rem; color:var(--color-text-muted);">List vehicle options and their package fares (e.g. Sedan: ₹5,499 | Innova: ₹7,999 | Crysta: ₹9,499).</small>
+        </div>
+
+        <!-- Inclusions -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Package Inclusions (Tolls, Parking, Driver Wage, Border Tax, 24*7 Support):</label>
+          <textarea id="trip_inclusions" class="form-control" rows="2" placeholder="Tolls Included, Parkings Included, Driver Wage Included, Border Tax Included, 24*7 Support, Best Price Guaranteed, AC Vehicle, Fuel, Doorstep Pickup & Drop"></textarea>
+        </div>
+
+        <!-- Exclusions -->
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Exclusions (Optional):</label>
+          <input type="text" id="trip_exclusions" class="form-control" placeholder="e.g. Special Entry Darshan Tickets, Hotel Stay, Food & Personal Expenses">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeTripModal()">Cancel</button>
+          <button type="submit" id="saveTripSubmitBtn" class="btn btn-primary btn-sm">Save Trip Package</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. Record Customer Callback / Inquiry Modal -->
   <div id="newCallbackModal" class="modal-backdrop">
     <div class="modal-box">
       <div class="modal-header">

@@ -440,6 +440,42 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // 6b. Trips & Tour Packages: GET, POST, PATCH, DELETE /api/trips
+  if (pathname === '/api/trips') {
+    if (method === 'GET') {
+      return sendJSON(res, 200, { success: true, trips: db.getAllTrips() });
+    }
+    if (method === 'POST') {
+      try {
+        const body = await parseRequestBody(req);
+        if (!body.title) {
+          return sendJSON(res, 400, { success: false, error: 'Trip title is required.' });
+        }
+        const trip = db.createTrip(body);
+        return sendJSON(res, 201, { success: true, message: 'Trip package created', trip });
+      } catch (err) {
+        return sendJSON(res, 500, { success: false, error: err.message });
+      }
+    }
+  }
+  const tripIdMatch = pathname.match(/^\/api\/trips\/([0-9]+)$/);
+  if (tripIdMatch) {
+    const id = parseInt(tripIdMatch[1], 10);
+    if (method === 'PATCH') {
+      try {
+        const body = await parseRequestBody(req);
+        const updated = db.updateTrip(id, body);
+        return sendJSON(res, 200, { success: true, message: 'Trip package updated', trip: updated });
+      } catch (err) {
+        return sendJSON(res, 500, { success: false, error: err.message });
+      }
+    }
+    if (method === 'DELETE') {
+      db.deleteTrip(id);
+      return sendJSON(res, 200, { success: true, message: 'Trip package deleted' });
+    }
+  }
+
   // 7. Contact Inquiries: GET, POST, PATCH, DELETE /api/contacts
   if (pathname === '/api/contacts' && method === 'GET') {
     return sendJSON(res, 200, { success: true, contacts: db.getAllContactInquiries() });

@@ -250,6 +250,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  window.selectTripForBooking = (tripTitle, duration = 'Tour Package') => {
+    const destinationInput = document.getElementById('destinationLocation');
+    const serviceSelect = document.getElementById('serviceSelection');
+    const bookingSection = document.getElementById('booking');
+
+    if (destinationInput) {
+      destinationInput.value = `${tripTitle} (${duration})`;
+      destinationInput.classList.add('is-focused-pulse');
+      setTimeout(() => destinationInput.classList.remove('is-focused-pulse'), 1500);
+    }
+
+    if (serviceSelect) {
+      serviceSelect.value = 'Outstation Trips';
+    }
+
+    if (bookingSection) {
+      const headerEl = document.querySelector('.main-header');
+      const headerHeight = headerEl ? headerEl.offsetHeight : 75;
+      const targetPosition = bookingSection.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+      window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+    }
+  };
+
   // 9. Interactive Full-Stack Booking Submission
   if (bookingForm) {
     const validateIndianPhone = (phone) => {
@@ -720,7 +743,123 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     }).join('');
   };
 
+  // Dynamic Trips & Tour Packages Loader
+  const loadWebsiteTrips = async () => {
+    const grid = document.querySelector('.trips-grid');
+    if (!grid) return;
+
+    let trips = null;
+    try {
+      const res = await fetch('/api/trips');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.trips && data.trips.length > 0) trips = data.trips;
+      }
+    } catch (e) {}
+
+    if (!trips) {
+      try {
+        const stored = localStorage.getItem('ynt_trips');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) trips = parsed;
+        }
+      } catch (e) {}
+    }
+
+    if (!trips || trips.length === 0) return;
+
+    const defaultTripImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+    grid.innerHTML = trips.map((t, idx) => {
+      const imgUrl = t.image_url || defaultTripImg;
+
+      // Parse day-wise itinerary
+      const itineraryLines = (t.itinerary || '').split('\n').filter(l => l.trim().length > 0);
+      const dayListHTML = itineraryLines.map((line, dIdx) => {
+        let dayLabel = `Day ${dIdx + 1}`;
+        let content = line;
+        const match = line.match(/^(Day\s*[0-9]+)\s*[:\-]\s*(.*)$/i);
+        if (match) {
+          dayLabel = match[1];
+          content = match[2];
+        }
+        return `
+          <div class="itinerary-day-item">
+            <span class="day-chip">${dayLabel}</span>
+            <span>${content}</span>
+          </div>
+        `;
+      }).join('');
+
+      // Parse vehicle pricing
+      const vehicleItems = (t.vehicle_pricing || '').split('|').map(v => v.trim()).filter(v => v.length > 0);
+      const vehicleGridHTML = vehicleItems.map(item => {
+        const parts = item.split(':');
+        const vName = parts[0] ? parts[0].trim() : item;
+        const vPrice = parts[1] ? parts[1].trim() : '';
+        return `
+          <div class="vehicle-price-pill">
+            <span>${vName}:</span>
+            <strong>${vPrice}</strong>
+          </div>
+        `;
+      }).join('');
+
+      // Parse inclusions checklist
+      const inclusionItems = (t.inclusions || 'Tolls Included, Parkings Included, Driver Wage Included, 24*7 Support').split(',').map(i => i.trim()).filter(i => i.length > 0);
+      const incChecklistHTML = inclusionItems.slice(0, 5).map(inc => {
+        return `<span class="inc-check-tag">✓ ${inc.replace(/^✓\s*/, '')}</span>`;
+      }).join('');
+
+      return `
+        <div class="trip-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+          <div class="trip-card-image-box">
+            <img src="${imgUrl}" alt="${t.title} - Yakshith Nandh Travels" loading="lazy" onerror="this.src='${defaultTripImg}'">
+            <span class="trip-duration-badge">📅 ${t.duration_days || '1 Day'}</span>
+            <span class="trip-all-inc-badge">✓ All-Inclusive</span>
+          </div>
+          <div class="trip-card-body">
+            <h3 class="trip-card-title">${t.title}</h3>
+            <div class="trip-card-subtitle">${t.subtitle || 'Sacred Pilgrimage Circuit'}</div>
+
+            <div class="trip-itinerary-box">
+              <div class="itinerary-heading">📍 Day-Wise Itinerary:</div>
+              <div class="itinerary-day-list">
+                ${dayListHTML || '<div style="font-size:0.85rem;color:var(--color-text-muted);">Customizable temple darshan itinerary with ghat road driver.</div>'}
+              </div>
+            </div>
+
+            <div class="trip-pricing-table">
+              <div class="pricing-table-heading">
+                <span>🚗 Vehicles & Pricing</span>
+                <span style="font-size:0.72rem; color:var(--color-accent-gold-dark);">All-Inclusive Fare</span>
+              </div>
+              <div class="vehicle-price-grid">
+                ${vehicleGridHTML || '<div class="vehicle-price-pill"><span>Standard Fleet:</span><strong>Best Price</strong></div>'}
+              </div>
+            </div>
+
+            <div class="trip-inclusions-checklist">
+              ${incChecklistHTML}
+            </div>
+
+            <div class="trip-card-footer">
+              <div class="starting-price-box">
+                <span class="price-label">Starting From</span>
+                <span class="price-val">${t.starting_price || 'Best Fare'}</span>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="selectTripForBooking('${(t.title || '').replace(/'/g, "\\'")}', '${(t.duration_days || 'Tour Package').replace(/'/g, "\\'")}')">
+                Book This Trip
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
   loadWebsiteFleet();
   loadWebsiteDestinations();
+  loadWebsiteTrips();
   checkAdminAccess();
 });

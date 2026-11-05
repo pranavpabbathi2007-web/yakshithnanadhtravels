@@ -189,6 +189,60 @@ const SEED_DATA = {
       image_url: 'https://images.unsplash.com/photo-1590073242678-70ee3fc28e8e?auto=format&fit=crop&w=800&q=80'
     }
   ],
+  trips: [
+    {
+      id: 1,
+      title: '1 Day Tirumala Quick Darshan & Local Temples Package',
+      duration_days: '1 Day',
+      subtitle: 'Tirumala Hill Shrine • Padmavathi Ammavari • Kapila Theertham',
+      image_url: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80',
+      itinerary: 'Day 1: Morning pickup from Tirupati Hotel/Station -> Ascend Tirumala via Ghat Road -> Lord Balaji Darshan, Silathoranam, Chakra Theertham & Papavinasam -> Afternoon descent -> Sri Padmavathi Ammavari Temple (Tiruchanur) -> Kapila Theertham Shiva Temple -> Drop back at Tirupati.',
+      vehicle_pricing: 'Sedan (Dzire / Etios): ₹2,999 | SUV (Innova): ₹4,499 | Luxury (Innova Crysta): ₹5,499 | Tempo (12 Seater): ₹7,999',
+      inclusions: 'Tolls Included, Parkings Included, Driver Wage Included, Tirumala Ghat Road Permit, Fuel, 24*7 Support, Best Price Guaranteed',
+      exclusions: 'Special Entry Darshan tickets, pilgrim meals, personal pooja expenses',
+      starting_price: '₹2,999',
+      is_popular: 1
+    },
+    {
+      id: 2,
+      title: '2 Days / 1 Night Divine Balaji & Kalahasti Kshetra Tour',
+      duration_days: '2 Days / 1 Night',
+      subtitle: 'Tirumala Balaji • Sri Kalahasteeswara (Vayu Lingam) • Tiruchanur',
+      image_url: 'https://images.unsplash.com/photo-1609766857329-a1b7e1933010?auto=format&fit=crop&w=800&q=80',
+      itinerary: 'Day 1: Arrival & Tirumala Balaji Hill Darshan -> Akhilandam, Matrusri Tarigonda Vengamamba Annaprasadam -> Evening descent & overnight stay in Tirupati.\nDay 2: Morning drive to Sri Kalahasti (38 km) for Rahu-Ketu Sarpa Dosha Nivarana Puja & Vayu Lingam darshan -> Afternoon visit to Tiruchanur Padmavathi Temple & ISKCON -> Evening drop at Tirupati Station/Airport.',
+      vehicle_pricing: 'Sedan (Dzire / Etios): ₹5,499 | SUV (Innova): ₹7,999 | Luxury (Innova Crysta): ₹9,499 | Tempo (12 Seater): ₹13,999',
+      inclusions: 'Tolls Included, Parkings Included, Driver Wage Included, Inter-District Travel, 24*7 Support, Best Price Guaranteed',
+      exclusions: 'Hotel accommodation, temple puja tickets, personal expenses',
+      starting_price: '₹5,499',
+      is_popular: 1
+    },
+    {
+      id: 3,
+      title: '3 Days / 2 Nights Complete Divya Kshetra Pilgrimage Circuit',
+      duration_days: '3 Days / 2 Nights',
+      subtitle: 'Tirumala + Sri Kalahasti + Kanipakam + Sripuram Golden Temple (Vellore)',
+      image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+      itinerary: 'Day 1: Tirumala Hill Temple Balaji Darshan, Theertham tour, Kalyana Venkateswara Swamy Temple (Srinivasa Mangapuram).\nDay 2: Sacred Sri Kalahasteeswara Rahu-Ketu Puja Kshetra, Kapila Theertham water shrine & Tiruchanur Divine Mother darshan.\nDay 3: Swayambhu Varasiddhi Vinayaka Swamy (Kanipakam water shrine) -> Inter-state drive to Sripuram Golden Temple (Vellore, 1500kg gold leaf shrine) -> Return drop to Tirupati.',
+      vehicle_pricing: 'Sedan (Dzire / Etios): ₹8,499 | SUV (Innova): ₹12,499 | Luxury (Innova Crysta): ₹14,999 | Tempo (12 Seater): ₹20,999',
+      inclusions: 'Tolls Included, Parkings Included, Driver Wage Included, State Border Tax (AP-TN) Included, 24*7 Support, Best Price Guaranteed',
+      exclusions: 'Hotel stay, VIP Darshan passes, meals',
+      starting_price: '₹8,499',
+      is_popular: 1
+    },
+    {
+      id: 4,
+      title: '4 Days / 3 Nights South India Spiritual Heritage Grand Tour',
+      duration_days: '4 Days / 3 Nights',
+      subtitle: 'Tirumala • Kalahasti • Kanchipuram Temple City • Mahabalipuram • Vellore',
+      image_url: 'https://images.unsplash.com/photo-1590073242678-70ee3fc28e8e?auto=format&fit=crop&w=800&q=80',
+      itinerary: 'Day 1: Tirupati arrival, Tirumala Balaji Special Darshan & Hill Shrine scenic exploration.\nDay 2: Sri Kalahasti Rahu-Ketu Temple -> Afternoon drive to historic Kanchipuram (Ekambareswarar, Varadharaja Perumal & Kamakshi Amman).\nDay 3: Mahabalipuram UNESCO Shore Temples & Arjuna\'s Penance ocean heritage -> Drive to Vellore.\nDay 4: Sripuram Mahalakshmi Golden Temple darshan -> Kanipakam Ganesha water temple -> Return drop at Tirupati/Chennai.',
+      vehicle_pricing: 'Sedan (Dzire / Etios): ₹12,999 | SUV (Innova): ₹18,499 | Luxury (Innova Crysta): ₹21,999 | Tempo (12 Seater): ₹29,999',
+      inclusions: 'Tolls Included, Parkings Included, Driver Wage Included, Multi-State Border Tax (AP-TN) Included, 24*7 Support, Best Price Guaranteed',
+      exclusions: 'Accommodations, monument entrance, darshan tickets',
+      starting_price: '₹12,999',
+      is_popular: 1
+    }
+  ],
   contacts: [
     { id: 1, name: 'Padmavathi Devi', phone: '+91 98480 33445', email: 'padma@example.com', message: 'Looking for 3-day round trip cab package for 6 elders visiting Tirumala and Kanipakam in December.', status: 'New', created_at: '2026-11-04 08:20 AM' }
   ],
@@ -271,6 +325,7 @@ let currentSearchTerm = '';
 let allServicesData = [];
 let allFleetData = [];
 let allDestinationsData = [];
+let allTripsData = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
@@ -289,6 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const vehicleImageFile = document.getElementById('veh_image_file');
   const destinationForm = document.getElementById('destinationForm');
   const destinationImageFile = document.getElementById('dest_image_file');
+  const tripForm = document.getElementById('tripForm');
+  const tripImageFile = document.getElementById('trip_image_file');
   const settingsForm = document.getElementById('settingsForm');
 
   // Load All Sections Data
@@ -324,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewParam === 'services') window.switchAdminTab('services-view');
     else if (viewParam === 'fleet' || viewParam === 'vehicles') window.switchAdminTab('fleet-view');
     else if (viewParam === 'destinations') window.switchAdminTab('destinations-view');
+    else if (viewParam === 'trips' || viewParam === 'packages') window.switchAdminTab('trips-view');
     else if (viewParam === 'messages' || viewParam === 'contacts') window.switchAdminTab('messages-view');
     else if (viewParam === 'settings' || viewParam === 'brand') window.switchAdminTab('settings-view');
     else if (viewParam === 'bookings') window.switchAdminTab('bookings-view');
@@ -710,6 +768,117 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ==========================================================================
+  // TRIP IMAGE UPLOAD & TRIP FORM HANDLER
+  // ==========================================================================
+
+  if (tripImageFile) {
+    tripImageFile.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const previewBox = document.getElementById('trip_image_preview_box');
+      const previewImg = document.getElementById('trip_image_preview');
+      const statusText = document.getElementById('trip_upload_status');
+      const urlInput = document.getElementById('trip_image_url');
+
+      if (previewBox) previewBox.style.display = 'flex';
+      if (statusText) statusText.innerHTML = '⚡ Optimizing photo...';
+
+      const compressed = await compressVehicleImage(file);
+      if (previewImg) previewImg.src = compressed.dataUrl;
+      if (urlInput) urlInput.value = compressed.dataUrl;
+      if (statusText) statusText.innerHTML = '✅ Photo loaded & ready to save';
+
+      try {
+        const filename = `${Date.now()}_trip_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+        const fileRef = storageRef(storage, `trips/${filename}`);
+
+        const uploadTask = (async () => {
+          const snapshot = await uploadBytes(fileRef, compressed.blob);
+          return await getDownloadURL(snapshot.ref);
+        })();
+
+        const timeoutTask = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 4000)
+        );
+
+        const downloadUrl = await Promise.race([uploadTask, timeoutTask]);
+        if (downloadUrl) {
+          if (urlInput) urlInput.value = downloadUrl;
+          if (previewImg) previewImg.src = downloadUrl;
+          if (statusText) statusText.innerHTML = '✅ Saved in Firebase Cloud Storage';
+        }
+      } catch (uploadErr) {
+        console.warn('Firebase Storage upload note:', uploadErr.message);
+        if (statusText) statusText.innerHTML = '✅ Photo ready (Optimized)';
+      }
+    });
+  }
+
+  if (tripForm) {
+    tripForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('tripId').value;
+      const saveBtn = document.getElementById('saveTripSubmitBtn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving Package...';
+      }
+
+      const pickedFile = tripImageFile && tripImageFile.files && tripImageFile.files[0];
+      let imageUrl = document.getElementById('trip_image_url').value.trim();
+      if (pickedFile && (!imageUrl || imageUrl.includes('unsplash.com'))) {
+        const compressed = await compressVehicleImage(pickedFile);
+        imageUrl = compressed.dataUrl;
+        document.getElementById('trip_image_url').value = imageUrl;
+      }
+
+      const payload = {
+        title: document.getElementById('trip_title').value.trim(),
+        duration_days: document.getElementById('trip_duration').value.trim(),
+        subtitle: document.getElementById('trip_subtitle').value.trim(),
+        starting_price: document.getElementById('trip_price').value.trim(),
+        itinerary: document.getElementById('trip_itinerary').value.trim(),
+        vehicle_pricing: document.getElementById('trip_vehicle_pricing').value.trim(),
+        inclusions: document.getElementById('trip_inclusions').value.trim(),
+        exclusions: document.getElementById('trip_exclusions').value.trim(),
+        image_url: imageUrl,
+        is_popular: 1
+      };
+
+      try {
+        const url = id ? `/api/trips/${id}` : '/api/trips';
+        const method = id ? 'PATCH' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('API offline');
+      } catch (err) {
+        const trips = getStorage('trips', SEED_DATA.trips);
+        if (id) {
+          const idx = trips.findIndex(t => String(t.id) === String(id));
+          if (idx !== -1) trips[idx] = { ...trips[idx], ...payload };
+        } else {
+          payload.id = Date.now();
+          trips.push(payload);
+        }
+        setStorage('trips', trips);
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Trip Package';
+      }
+
+      window.closeTripModal();
+      loadTrips();
+      alert(id ? 'Trip package updated successfully!' : 'Trip package created successfully!');
+    });
+  }
+
   // Service Form Submit
   if (serviceEditForm) {
     serviceEditForm.addEventListener('submit', async (e) => {
@@ -790,6 +959,7 @@ async function loadAllData() {
     loadServices(),
     loadFleet(),
     loadDestinations(),
+    loadTrips(),
     loadMessages(),
     loadSettings()
   ]);
@@ -1109,6 +1279,90 @@ async function loadDestinations() {
   }).join('');
 }
 
+// 5b. Trips & Multi-Day Tour Packages
+async function loadTrips() {
+  const container = document.getElementById('tripsCardsContainer');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/trips');
+    if (res.ok) {
+      const data = await res.json();
+      allTripsData = data.trips || [];
+      setStorage('trips', allTripsData);
+    } else {
+      throw new Error('API offline');
+    }
+  } catch (err) {
+    allTripsData = getStorage('trips', SEED_DATA.trips);
+  }
+
+  const countBadge = document.getElementById('tabTripsCount');
+  if (countBadge) countBadge.textContent = allTripsData.length;
+
+  const defaultTripPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+
+  container.innerHTML = allTripsData.map(t => {
+    const isFirebase = t.image_url && t.image_url.includes('firebasestorage.app');
+    const displayImg = t.image_url || defaultTripPhoto;
+
+    const itineraryLines = (t.itinerary || '').split('\n').filter(l => l.trim().length > 0);
+    const itineraryPreview = itineraryLines.slice(0, 3).map(line => {
+      return `<div style="font-size:0.8rem; margin-bottom:4px; color:var(--color-text-main); line-height:1.4;">• ${escapeHTML(line)}</div>`;
+    }).join('');
+
+    return `
+      <div class="admin-content-card">
+        <div style="width:100%; height:160px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(t.title)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultTripPhoto}'">
+          <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.92); color:#FFF9F0; font-weight:700;">
+            📅 ${escapeHTML(t.duration_days || '1 Day')}
+          </span>
+          <span style="position:absolute; top:8px; right:8px; background:#2E7D32; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">
+            ${escapeHTML(t.starting_price ? 'From ' + t.starting_price : 'All-Inclusive')}
+          </span>
+          ${isFirebase ? `
+            <span style="position:absolute; bottom:8px; left:8px; background:#D86300; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:4px;">🔥 Cloud Asset</span>
+          ` : ''}
+        </div>
+
+        <h3 style="margin-top:0; margin-bottom:4px; font-size:1.15rem;">${escapeHTML(t.title)}</h3>
+        <div style="font-family:var(--font-subheading); font-size:0.92rem; color:var(--color-accent-gold-dark); font-weight:600; margin-bottom:10px;">
+          ${escapeHTML(t.subtitle || '')}
+        </div>
+
+        <div style="background:#FFF9F0; border:1px solid var(--color-border); border-radius:6px; padding:8px 10px; margin-bottom:10px;">
+          <strong style="display:block; font-size:0.75rem; color:var(--color-primary); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">📍 Day-Wise Itinerary:</strong>
+          ${itineraryPreview}
+          ${itineraryLines.length > 3 ? `<div style="font-size:0.75rem; color:var(--color-text-muted); font-style:italic;">+ ${itineraryLines.length - 3} more day(s)...</div>` : ''}
+        </div>
+
+        <div style="background:#FFFFFF; border:1px dashed var(--color-border-gold); border-radius:6px; padding:8px 10px; margin-bottom:10px; font-size:0.78rem;">
+          <strong style="color:var(--color-primary); display:block; margin-bottom:4px;">🚗 Vehicles & Pricing:</strong>
+          <div style="color:var(--color-text-main); line-height:1.45;">${escapeHTML(t.vehicle_pricing || 'Standard Sedan & SUV packages available')}</div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px; font-size:0.7rem; font-weight:600;">
+          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">🛣️ Tolls</span>
+          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">🅿️ Parking</span>
+          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">👨‍✈️ Driver Batta</span>
+          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">🏛️ Border Tax</span>
+          <span style="background:#FFF3E0; color:#E65100; padding:2px 6px; border-radius:4px;">📞 24/7 Support</span>
+        </div>
+
+        <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTripModal(${t.id})">Edit Package</button>
+          <div class="action-btn-group">
+            <button type="button" class="action-icon-btn delete" title="Delete Trip Package" onclick="deleteTripRecord(${t.id})">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 // 6. Messages Table
 async function loadMessages() {
   const tbody = document.getElementById('messagesTableBody');
@@ -1327,6 +1581,63 @@ window.openEditDestinationModal = (id) => {
   document.getElementById('destinationModal').classList.add('open');
 };
 window.closeDestinationModal = () => document.getElementById('destinationModal').classList.remove('open');
+
+window.openAddTripModal = () => {
+  document.getElementById('tripModalTitle').textContent = 'Add New Trip Package';
+  document.getElementById('tripId').value = '';
+  document.getElementById('tripForm').reset();
+  const previewBox = document.getElementById('trip_image_preview_box');
+  if (previewBox) previewBox.style.display = 'none';
+  const urlInput = document.getElementById('trip_image_url');
+  if (urlInput) urlInput.value = '';
+  document.getElementById('trip_inclusions').value = 'Tolls Included, Parkings Included, Driver Wage Included, Border Tax Included, 24*7 Support, Best Price Guaranteed, AC Vehicle, Fuel, Doorstep Pickup & Drop';
+  document.getElementById('tripModal').classList.add('open');
+};
+
+window.openEditTripModal = (id) => {
+  const trip = allTripsData.find(t => t.id === id);
+  if (!trip) return;
+  document.getElementById('tripModalTitle').textContent = 'Edit Trip Package';
+  document.getElementById('tripId').value = trip.id;
+  document.getElementById('trip_title').value = trip.title || '';
+  document.getElementById('trip_duration').value = trip.duration_days || '';
+  document.getElementById('trip_subtitle').value = trip.subtitle || '';
+  document.getElementById('trip_price').value = trip.starting_price || '';
+  document.getElementById('trip_itinerary').value = trip.itinerary || '';
+  document.getElementById('trip_vehicle_pricing').value = trip.vehicle_pricing || '';
+  document.getElementById('trip_inclusions').value = trip.inclusions || 'Tolls Included, Parkings Included, Driver Wage Included, Border Tax Included, 24*7 Support, Best Price Guaranteed';
+  document.getElementById('trip_exclusions').value = trip.exclusions || '';
+
+  const urlInput = document.getElementById('trip_image_url');
+  const previewBox = document.getElementById('trip_image_preview_box');
+  const previewImg = document.getElementById('trip_image_preview');
+  const statusText = document.getElementById('trip_upload_status');
+
+  if (urlInput) urlInput.value = trip.image_url || '';
+  if (trip.image_url) {
+    if (previewBox) previewBox.style.display = 'flex';
+    if (previewImg) previewImg.src = trip.image_url;
+    if (statusText) statusText.textContent = trip.image_url.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Package Photo';
+  } else {
+    if (previewBox) previewBox.style.display = 'none';
+  }
+
+  document.getElementById('tripModal').classList.add('open');
+};
+
+window.closeTripModal = () => document.getElementById('tripModal').classList.remove('open');
+
+window.deleteTripRecord = async (id) => {
+  if (!confirm('Are you sure you want to delete this trip package?')) return;
+  try {
+    const res = await fetch(`/api/trips/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('API offline');
+  } catch (err) {
+    allTripsData = allTripsData.filter(t => t.id !== id);
+    setStorage('trips', allTripsData);
+  }
+  loadTrips();
+};
 
 window.openNewCallbackModal = () => {
   document.getElementById('newCallbackModal').classList.add('open');
