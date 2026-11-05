@@ -22,6 +22,7 @@ import {
   deleteServiceFromFirestore,
   saveSettingsToFirestore,
   saveBookingToFirestore,
+  recordAdminImageToFirestore,
   syncAllToFirestore
 } from './firebase-sdk.js';
 
@@ -806,6 +807,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setStorage('fleet', allFleetData);
       saveVehicleToFirestore(payload).catch(() => {});
+      if (payload.image_url) {
+        recordAdminImageToFirestore('vehicle', payload.model_name, payload.image_url).catch(() => {});
+      }
 
       // 2. Call API
       try {
@@ -902,6 +906,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setStorage('destinations', allDestinationsData);
       saveDestinationToFirestore(payload).catch(() => {});
+      if (payload.image_url) {
+        recordAdminImageToFirestore('destination', payload.name, payload.image_url).catch(() => {});
+      }
 
       try {
         const url = id ? `/api/destinations/${id}` : '/api/destinations';
@@ -999,6 +1006,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setStorage('trips', allTripsData);
       saveTripToFirestore(payload).catch(() => {});
+      if (payload.image_url) {
+        recordAdminImageToFirestore('trip', payload.title, payload.image_url).catch(() => {});
+      }
 
       try {
         const url = id ? `/api/trips/${id}` : '/api/trips';
@@ -2078,6 +2088,27 @@ window.deleteDestinationRecord = async (id) => {
   } catch (err) {}
   await syncStateToFirebaseCloud();
   await loadDestinations(false);
+};
+
+window.syncAllDataToFirestore = async () => {
+  const btn = document.getElementById('syncFirestoreBtn');
+  const origHTML = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⚡ Syncing Collections...</span>';
+  }
+  showAdminToast('☁️ Syncing all collections (admin, fleet, destinations, trips, services, settings, admin_images) to Cloud Firestore...');
+  try {
+    await syncStateToFirebaseCloud();
+    showAdminToast('✅ Cloud Firestore fully synchronized! Refresh your Firebase console to view collections.');
+  } catch (err) {
+    showAdminToast('⚠️ Firestore sync note: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+    }
+  }
 };
 
 window.openMessageStatusModal = (id, currentStatus) => {

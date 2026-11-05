@@ -206,6 +206,24 @@ async function saveBookingToFirestore(booking) {
 }
 
 /**
+ * Record an updated image into Firestore admin_images collection
+ */
+async function recordAdminImageToFirestore(type, name, imageUrl) {
+  if (!imageUrl) return;
+  try {
+    const cleanKey = String(name || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
+    await setDoc(doc(db, 'admin_images', `${type}_${cleanKey}`), {
+      category: type,
+      title: name,
+      image_url: imageUrl,
+      updated_at: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.warn('Record admin image note:', e.message);
+  }
+}
+
+/**
  * Ultra-Fast Multi-Collection Firestore Synchronization
  * Writes unified snapshot to site_content/data AND populates individual collections
  */
@@ -219,7 +237,21 @@ async function syncAllToFirestore(snapshot) {
       .catch(e => console.warn('Snapshot write note:', e.message))
   );
 
-  // 2. Settings document
+  // 2. Admin profile collection document (admin/profile)
+  promises.push(
+    setDoc(doc(db, 'admin', 'profile'), {
+      username: 'admin',
+      email: 'admin@yakshithnandhtravels.com',
+      role: 'Master Dispatcher & Administrator',
+      company: 'Yakshith Nandh Travels',
+      helpline: '+91 88868 30755 / +91 97009 35888',
+      location: 'Tirupati, Andhra Pradesh, India',
+      status: 'Active',
+      updated_at: new Date().toISOString()
+    }, { merge: true }).catch(e => console.warn('Admin profile note:', e.message))
+  );
+
+  // 3. Settings document
   if (snapshot.settings) {
     promises.push(
       setDoc(doc(db, 'settings', 'general'), snapshot.settings, { merge: true })
@@ -227,7 +259,7 @@ async function syncAllToFirestore(snapshot) {
     );
   }
 
-  // 3. Fleet collection documents
+  // 4. Fleet collection documents
   if (Array.isArray(snapshot.fleet)) {
     for (const v of snapshot.fleet) {
       if (v && v.id) {
@@ -235,11 +267,22 @@ async function syncAllToFirestore(snapshot) {
           setDoc(doc(db, 'fleet', String(v.id)), v, { merge: true })
             .catch(e => console.warn('Fleet vehicle write note:', e.message))
         );
+        if (v.image_url) {
+          const cleanKey = String(v.model_name || v.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          promises.push(
+            setDoc(doc(db, 'admin_images', `vehicle_${cleanKey}`), {
+              category: 'fleet',
+              title: v.model_name,
+              image_url: v.image_url,
+              updated_at: new Date().toISOString()
+            }, { merge: true }).catch(() => {})
+          );
+        }
       }
     }
   }
 
-  // 4. Destinations collection documents
+  // 5. Destinations collection documents
   if (Array.isArray(snapshot.destinations)) {
     for (const d of snapshot.destinations) {
       if (d && d.id) {
@@ -247,11 +290,22 @@ async function syncAllToFirestore(snapshot) {
           setDoc(doc(db, 'destinations', String(d.id)), d, { merge: true })
             .catch(e => console.warn('Destination write note:', e.message))
         );
+        if (d.image_url) {
+          const cleanKey = String(d.name || d.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          promises.push(
+            setDoc(doc(db, 'admin_images', `dest_${cleanKey}`), {
+              category: 'destinations',
+              title: d.name,
+              image_url: d.image_url,
+              updated_at: new Date().toISOString()
+            }, { merge: true }).catch(() => {})
+          );
+        }
       }
     }
   }
 
-  // 5. Trips collection documents
+  // 6. Trips collection documents
   if (Array.isArray(snapshot.trips)) {
     for (const t of snapshot.trips) {
       if (t && t.id) {
@@ -259,11 +313,22 @@ async function syncAllToFirestore(snapshot) {
           setDoc(doc(db, 'trips', String(t.id)), t, { merge: true })
             .catch(e => console.warn('Trip write note:', e.message))
         );
+        if (t.image_url) {
+          const cleanKey = String(t.title || t.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          promises.push(
+            setDoc(doc(db, 'admin_images', `trip_${cleanKey}`), {
+              category: 'trips',
+              title: t.title,
+              image_url: t.image_url,
+              updated_at: new Date().toISOString()
+            }, { merge: true }).catch(() => {})
+          );
+        }
       }
     }
   }
 
-  // 6. Services collection documents
+  // 7. Services collection documents
   if (Array.isArray(snapshot.services)) {
     for (const s of snapshot.services) {
       if (s && s.id) {
@@ -366,6 +431,7 @@ export {
   deleteServiceFromFirestore,
   saveSettingsToFirestore,
   saveBookingToFirestore,
+  recordAdminImageToFirestore,
   syncAllToFirestore,
   loginAdminWithFirebase,
   createAdminWithFirebase,
