@@ -208,14 +208,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const vehicleSelect = document.getElementById('preferredVehicle');
     const bookingSection = document.getElementById('booking');
     
-    if (vehicleSelect) {
-      vehicleSelect.value = vehicleName;
+    if (vehicleSelect && vehicleName) {
+      const cleanTarget = String(vehicleName).trim().toLowerCase();
+      let matched = false;
+
+      // 1. Exact value match
+      for (let i = 0; i < vehicleSelect.options.length; i++) {
+        const opt = vehicleSelect.options[i];
+        if (opt.value && opt.value.trim().toLowerCase() === cleanTarget) {
+          vehicleSelect.selectedIndex = i;
+          matched = true;
+          break;
+        }
+      }
+
+      // 2. Partial label/text match
+      if (!matched) {
+        for (let i = 0; i < vehicleSelect.options.length; i++) {
+          const opt = vehicleSelect.options[i];
+          const optText = opt.text ? opt.text.trim().toLowerCase() : '';
+          const optVal = opt.value ? opt.value.trim().toLowerCase() : '';
+          if (optText.includes(cleanTarget) || cleanTarget.includes(optVal) || optVal.includes(cleanTarget)) {
+            vehicleSelect.selectedIndex = i;
+            matched = true;
+            break;
+          }
+        }
+      }
+
+      // 3. Dynamic insertion fallback if vehicle was not in options
+      if (!matched) {
+        const newOpt = document.createElement('option');
+        newOpt.value = String(vehicleName).trim();
+        newOpt.textContent = String(vehicleName).trim();
+        newOpt.selected = true;
+        vehicleSelect.appendChild(newOpt);
+        vehicleSelect.value = String(vehicleName).trim();
+      }
+
+      // Dispatch change event to notify all listeners
+      vehicleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      vehicleSelect.classList.remove('is-invalid');
       vehicleSelect.classList.add('is-focused-pulse');
       setTimeout(() => vehicleSelect.classList.remove('is-focused-pulse'), 1500);
     }
 
     if (bookingSection) {
-      const headerHeight = header.offsetHeight || 75;
+      const headerHeight = header ? (header.offsetHeight || 75) : 75;
       const targetPosition = bookingSection.getBoundingClientRect().top + window.pageYOffset - headerHeight;
       window.scrollTo({ top: targetPosition, behavior: 'smooth' });
     }
@@ -547,66 +586,63 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       hasHydratedFromFirestore = true;
     }
 
-    // If source is API snapshot and we already have Firestore state, protect custom/Firebase images
+    // If source is API snapshot and we already have Firestore state, never let API snapshot overwrite Firestore data
     if (source === 'api' && hasHydratedFromFirestore) {
-      if (Array.isArray(data.fleet) && currentSiteState.fleet.length > 0) {
-        data.fleet = data.fleet.map(apiV => {
-          const liveV = currentSiteState.fleet.find(v => String(v.id) === String(apiV.id));
-          if (liveV && liveV.image_url && !liveV.image_url.includes('unsplash.com')) {
-            return { ...apiV, image_url: liveV.image_url };
-          }
-          return apiV;
-        });
+      if (currentSiteState.fleet && currentSiteState.fleet.length > 0) {
+        data.fleet = currentSiteState.fleet;
       }
-      if (Array.isArray(data.destinations) && currentSiteState.destinations.length > 0) {
-        data.destinations = data.destinations.map(apiD => {
-          const liveD = currentSiteState.destinations.find(d => String(d.id) === String(apiD.id));
-          if (liveD && liveD.image_url && !liveD.image_url.includes('unsplash.com')) {
-            return { ...apiD, image_url: liveD.image_url };
-          }
-          return apiD;
-        });
+      if (currentSiteState.destinations && currentSiteState.destinations.length > 0) {
+        data.destinations = currentSiteState.destinations;
       }
-      if (Array.isArray(data.trips) && currentSiteState.trips.length > 0) {
-        data.trips = data.trips.map(apiT => {
-          const liveT = currentSiteState.trips.find(t => String(t.id) === String(apiT.id));
-          if (liveT && liveT.image_url && !liveT.image_url.includes('unsplash.com')) {
-            return { ...apiT, image_url: liveT.image_url };
-          }
-          return apiT;
-        });
+      if (currentSiteState.trips && currentSiteState.trips.length > 0) {
+        data.trips = currentSiteState.trips;
+      }
+      if (currentSiteState.services && currentSiteState.services.length > 0) {
+        data.services = currentSiteState.services;
+      }
+      if (currentSiteState.settings) {
+        data.settings = { ...data.settings, ...currentSiteState.settings };
       }
     }
 
     // Preserve latest state internally
-    if (data.settings) currentSiteState.settings = data.settings;
+    if (data.settings && typeof data.settings === 'object') currentSiteState.settings = data.settings;
     if (Array.isArray(data.fleet) && data.fleet.length > 0) currentSiteState.fleet = data.fleet;
     if (Array.isArray(data.destinations) && data.destinations.length > 0) currentSiteState.destinations = data.destinations;
     if (Array.isArray(data.trips) && data.trips.length > 0) currentSiteState.trips = data.trips;
     if (Array.isArray(data.services) && data.services.length > 0) currentSiteState.services = data.services;
 
+    // Working effective data
+    const effectiveData = {
+      settings: currentSiteState.settings || data.settings,
+      fleet: (currentSiteState.fleet && currentSiteState.fleet.length > 0) ? currentSiteState.fleet : (data.fleet || []),
+      destinations: (currentSiteState.destinations && currentSiteState.destinations.length > 0) ? currentSiteState.destinations : (data.destinations || []),
+      trips: (currentSiteState.trips && currentSiteState.trips.length > 0) ? currentSiteState.trips : (data.trips || []),
+      services: (currentSiteState.services && currentSiteState.services.length > 0) ? currentSiteState.services : (data.services || [])
+    };
+
     // Deep content signature (excludes volatile timestamps like updated_at to prevent DOM thrashing)
     const currentHash = JSON.stringify({
-      s: data.settings ? {
-        c: data.settings.company_name,
-        p: data.settings.primary_phone,
-        p2: data.settings.secondary_phone,
-        sl: data.settings.slogan,
-        an: data.settings.announcement,
-        em: data.settings.email,
-        l: data.settings.location
+      s: effectiveData.settings ? {
+        c: effectiveData.settings.company_name,
+        p: effectiveData.settings.primary_phone,
+        p2: effectiveData.settings.secondary_phone,
+        sl: effectiveData.settings.slogan,
+        an: effectiveData.settings.announcement,
+        em: effectiveData.settings.email,
+        l: effectiveData.settings.location
       } : null,
-      f: (data.fleet || []).map(v => `${v.id}:${v.is_published}:${v.is_available}:${v.model_name}:${v.daily_rent}:${v.rate_per_km}:${v.image_url}`).join('|'),
-      d: (data.destinations || []).map(d => `${d.id}:${d.is_published}:${d.is_popular}:${d.name}:${d.subtitle}:${d.image_url}`).join('|'),
-      t: (data.trips || []).map(t => `${t.id}:${t.is_published}:${t.is_popular}:${t.title}:${t.starting_price}:${t.image_url}`).join('|'),
-      v: (data.services || []).map(s => `${s.id}:${s.is_published}:${s.is_active}:${s.name}:${s.starting_price}`).join('|')
+      f: (effectiveData.fleet || []).map(v => `${v.id}:${v.is_published}:${v.is_available}:${v.model_name}:${v.daily_rent}:${v.rate_per_km}:${v.image_url}`).join('|'),
+      d: (effectiveData.destinations || []).map(d => `${d.id}:${d.is_published}:${d.is_popular}:${d.name}:${d.subtitle}:${d.image_url}`).join('|'),
+      t: (effectiveData.trips || []).map(t => `${t.id}:${t.is_published}:${t.is_popular}:${t.title}:${t.starting_price}:${t.image_url}`).join('|'),
+      v: (effectiveData.services || []).map(s => `${s.id}:${s.is_published}:${s.is_active}:${s.name}:${s.starting_price}`).join('|')
     });
     if (currentHash === lastAppliedSnapshotHash) return;
     lastAppliedSnapshotHash = currentHash;
 
     // 1. Synchronize Website Branding, Helpline Numbers & Contact Details
-    if (data.settings && typeof data.settings === 'object') {
-      const s = data.settings;
+    if (effectiveData.settings && typeof effectiveData.settings === 'object') {
+      const s = effectiveData.settings;
 
       // Slogan
       if (s.slogan) {
@@ -668,8 +704,8 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     }
 
     // 2. Synchronize Services Section & Dropdown Options
-    if (data.services && Array.isArray(data.services)) {
-      const publishedServices = data.services.filter(s => s.is_published !== 0 && s.is_active !== 0);
+    if (effectiveData.services && Array.isArray(effectiveData.services)) {
+      const publishedServices = effectiveData.services.filter(s => s.is_published !== 0 && s.is_active !== 0);
       const servicesGrid = document.querySelector('.services-grid');
       if (servicesGrid && publishedServices.length > 0) {
         servicesGrid.innerHTML = publishedServices.map((s, idx) => {
@@ -713,8 +749,8 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     }
 
     // 3. Synchronize Vehicles Fleet Section & Dropdown Options
-    if (data.fleet && Array.isArray(data.fleet)) {
-      const publishedFleet = data.fleet.filter(v => v.is_published !== 0 && v.is_available !== 0);
+    if (effectiveData.fleet && Array.isArray(effectiveData.fleet)) {
+      const publishedFleet = effectiveData.fleet.filter(v => v.is_published !== 0 && v.is_available !== 0);
       const fleetGrid = document.querySelector('.vehicles-grid');
       if (fleetGrid && publishedFleet.length > 0) {
         const defaultImg = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80';
@@ -767,15 +803,22 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const vehicleSelect = document.getElementById('preferredVehicle');
       if (vehicleSelect && publishedFleet.length > 0) {
         const currentVal = vehicleSelect.value;
-        vehicleSelect.innerHTML = '<option value="" disabled selected>Select Preferred Vehicle</option>' +
-          publishedFleet.map(v => `<option value="${escapeHTML(v.model_name)}">${escapeHTML(v.model_name)} (${escapeHTML(v.capacity || 'AC')})</option>`).join('');
+        const optionsHTML = ['<option value="" disabled' + (!currentVal ? ' selected' : '') + '>Select Preferred Vehicle</option>'];
+        publishedFleet.forEach(v => {
+          const vName = v.model_name || 'Vehicle';
+          const cap = v.capacity ? ` (${v.capacity})` : '';
+          const isSelected = (currentVal && (currentVal === vName || currentVal.toLowerCase() === vName.toLowerCase()));
+          optionsHTML.push(`<option value="${escapeHTML(vName)}"${isSelected ? ' selected' : ''}>${escapeHTML(vName)}${escapeHTML(cap)}</option>`);
+        });
+        optionsHTML.push('<option value="Any Available Vehicle"' + (currentVal === 'Any Available Vehicle' ? ' selected' : '') + '>Any Available Vehicle</option>');
+        vehicleSelect.innerHTML = optionsHTML.join('');
         if (currentVal) vehicleSelect.value = currentVal;
       }
     }
 
     // 4. Synchronize Destinations Section
-    if (data.destinations && Array.isArray(data.destinations)) {
-      const publishedDestinations = data.destinations.filter(d => d.is_published !== 0 && d.is_popular !== 0);
+    if (effectiveData.destinations && Array.isArray(effectiveData.destinations)) {
+      const publishedDestinations = effectiveData.destinations.filter(d => d.is_published !== 0 && d.is_popular !== 0);
       const destGrid = document.querySelector('.destinations-grid');
       if (destGrid && publishedDestinations.length > 0) {
         const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
@@ -808,8 +851,8 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     }
 
     // 5. Synchronize Trips & Multi-Day Tour Packages Section
-    if (data.trips && Array.isArray(data.trips)) {
-      const publishedTrips = data.trips.filter(t => t.is_published !== 0 && t.is_active !== 0);
+    if (effectiveData.trips && Array.isArray(effectiveData.trips)) {
+      const publishedTrips = effectiveData.trips.filter(t => t.is_published !== 0 && t.is_active !== 0);
       const tripsGrid = document.querySelector('.trips-grid');
       if (tripsGrid && publishedTrips.length > 0) {
         const defaultTripImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';

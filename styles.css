@@ -682,13 +682,13 @@ section {
   background-color: var(--color-bg-warm);
 }
 
-/* Hero Background Layer with South Indian Landscape & Temple Silhouette */
+/* Hero Background Layer with Tirumala Venkateswara Temple & Golden Vimana */
 .hero-bg-layer {
   position: absolute;
   inset: 0;
   background-image: 
     linear-gradient(135deg, rgba(245, 235, 221, 0.94) 0%, rgba(255, 249, 240, 0.88) 50%, rgba(245, 235, 221, 0.95) 100%),
-    url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1920&q=80');
+    url('/images/tirumala_temple_hero.jpg');
   background-size: cover;
   background-position: center center;
   z-index: 1;

@@ -213,7 +213,7 @@
          HERO SECTION
          ========================================================================== -->
     <section id="home" class="hero-section">
-      <div class="hero-bg-layer" aria-hidden="true"></div>
+      <div class="hero-bg-layer" style="background-image: linear-gradient(135deg, rgba(245, 235, 221, 0.94) 0%, rgba(255, 249, 240, 0.88) 50%, rgba(245, 235, 221, 0.95) 100%), url('/images/tirumala_temple_hero.jpg');" aria-hidden="true"></div>
 
       <!-- Subtle Tirumala Gopuram SVG Silhouette in Background -->
       <svg class="hero-temple-silhouette" viewBox="0 0 500 500" aria-hidden="true">
@@ -1480,10 +1480,12 @@
                     <span class="req">*</span>
                   </label>
                   <select id="preferredVehicle" class="form-control" required>
-                    <option value="">-- Choose Vehicle --</option>
-                    <option value="Toyota Innova Crysta">Toyota Innova Crysta (7-8 Seater)</option>
-                    <option value="Premium City Sedan">Premium City Sedan (4 Seater)</option>
-                    <option value="Any Available">Any Available Vehicle</option>
+                    <option value="" disabled selected>Select Preferred Vehicle</option>
+                    <option value="Honda City">Honda City (4 Seater)</option>
+                    <option value="Innova Crysta">Innova Crysta (7-8 Seater)</option>
+                    <option value="Toyota Innova">Toyota Innova (7-8 Seater)</option>
+                    <option value="Premium City Sedan (Honda City / Ciaz)">Premium City Sedan (Honda City / Ciaz) (4 Seater)</option>
+                    <option value="Any Available Vehicle">Any Available Vehicle</option>
                   </select>
                   <span class="error-msg">Please select your preferred vehicle.</span>
                 </div>
