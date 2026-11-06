@@ -608,7 +608,32 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     // Preserve latest state internally
     if (data.settings && typeof data.settings === 'object') currentSiteState.settings = data.settings;
     if (Array.isArray(data.fleet) && data.fleet.length > 0) currentSiteState.fleet = data.fleet;
-    if (Array.isArray(data.destinations) && data.destinations.length > 0) currentSiteState.destinations = data.destinations;
+    if (Array.isArray(data.destinations) && data.destinations.length > 0) {
+      if (!currentSiteState.destinations || currentSiteState.destinations.length === 0) {
+        currentSiteState.destinations = data.destinations.map(d => ({
+          ...d,
+          image_url: d.image_url || d.imageUrl || d.image || d.photo || ''
+        }));
+      } else {
+        const merged = [...currentSiteState.destinations];
+        for (const incoming of data.destinations) {
+          const idx = merged.findIndex(m => String(m.id) === String(incoming.id));
+          const incImg = incoming.image_url || incoming.imageUrl || incoming.image || incoming.photo || '';
+          if (idx === -1) {
+            merged.push({ ...incoming, image_url: incImg });
+          } else {
+            const existingImg = merged[idx].image_url || '';
+            const keepExistingImg = existingImg.includes('firebasestorage') && !incImg.includes('firebasestorage');
+            merged[idx] = {
+              ...merged[idx],
+              ...incoming,
+              image_url: keepExistingImg ? existingImg : (incImg || existingImg)
+            };
+          }
+        }
+        currentSiteState.destinations = merged;
+      }
+    }
     if (Array.isArray(data.trips) && data.trips.length > 0) currentSiteState.trips = data.trips;
     if (Array.isArray(data.services) && data.services.length > 0) currentSiteState.services = data.services;
 
@@ -823,7 +848,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       if (destGrid && publishedDestinations.length > 0) {
         const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
         destGrid.innerHTML = publishedDestinations.map((d, idx) => {
-          const imgUrl = d.image_url || defaultDestImg;
+          const imgUrl = d.image_url || d.imageUrl || d.image || d.photo || defaultDestImg;
           return `
             <div class="destination-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
               <div class="destination-img-box">
@@ -1004,9 +1029,20 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         const destList = [];
         snap.forEach(d => {
           const item = d.data();
-          if (item) destList.push(item);
+          if (item) {
+            const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+            const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+            destList.push({ ...item, id: idVal, image_url: imgUrl });
+          }
         });
         if (destList.length > 0) {
+          destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+          try {
+            const rawCache = localStorage.getItem('ynt_firestore_cache');
+            const curCache = rawCache ? JSON.parse(rawCache) : {};
+            curCache.destinations = destList;
+            localStorage.setItem('ynt_firestore_cache', JSON.stringify(curCache));
+          } catch (e) {}
           applyWebsiteData({ destinations: destList }, 'firestore');
         }
       }

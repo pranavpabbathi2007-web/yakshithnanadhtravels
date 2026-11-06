@@ -148,9 +148,29 @@ async function _doInitAdminCloudState() {
           }
         }
       }, (err) => {
-        // Non-fatal background listener notice
         console.debug('Admin onSnapshot status:', err.message);
       });
+
+      // Also listen to individual destinations collection directly
+      onSnapshot(collection(db, 'destinations'), (snap) => {
+        if (!snap.empty) {
+          const destList = [];
+          snap.forEach(d => {
+            const item = d.data();
+            if (item) {
+              const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+              const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+              destList.push({ ...item, id: idVal, image_url: imgUrl });
+            }
+          });
+          if (destList.length > 0) {
+            destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            allDestinationsData = destList;
+            setStorage('destinations', allDestinationsData);
+            loadDestinations(false).catch(() => {});
+          }
+        }
+      }, (err) => console.debug('Admin destinations collection listener:', err.message));
     } catch (e) {
       console.debug('Snapshot listener setup note:', e.message);
     }
@@ -1621,21 +1641,22 @@ async function loadDestinations(forceFetch = false) {
   const container = document.getElementById('destinationsCardsContainer');
   if (!container) return;
 
+  // Prioritize existing memory or localStorage before falling back to API
+  if (!allDestinationsData || allDestinationsData.length === 0) {
+    allDestinationsData = getStorage('destinations', null);
+  }
+
   if (forceFetch || !allDestinationsData || allDestinationsData.length === 0) {
     try {
       const res = await fetch('/api/destinations');
       if (res.ok) {
         const data = await res.json();
-        allDestinationsData = data.destinations || [];
-        setStorage('destinations', allDestinationsData);
-      } else {
-        throw new Error('API offline');
+        if (!allDestinationsData || allDestinationsData.length === 0) {
+          allDestinationsData = data.destinations || [];
+          setStorage('destinations', allDestinationsData);
+        }
       }
-    } catch (err) {
-      if (!allDestinationsData || allDestinationsData.length === 0) {
-        allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
-      }
-    }
+    } catch (err) {}
   }
 
   if (!allDestinationsData || allDestinationsData.length === 0) {
@@ -1645,8 +1666,8 @@ async function loadDestinations(forceFetch = false) {
   const defaultDestPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
 
   container.innerHTML = allDestinationsData.map(d => {
-    const isFirebase = d.image_url && d.image_url.includes('firebasestorage.app');
-    const displayImg = d.image_url || defaultDestPhoto;
+    const displayImg = d.image_url || d.imageUrl || d.image || d.photo || defaultDestPhoto;
+    const isFirebase = displayImg && displayImg.includes('firebasestorage');
     const isPub = (d.is_published !== 0 && d.is_popular !== 0);
 
     return `
@@ -1979,7 +2000,7 @@ window.openAddDestinationModal = () => {
 };
 
 window.openEditDestinationModal = (id) => {
-  const dest = allDestinationsData.find(d => d.id === id);
+  const dest = allDestinationsData.find(d => String(d.id) === String(id));
   if (!dest) return;
   document.getElementById('destModalTitle').textContent = 'Edit Destination';
   document.getElementById('destId').value = dest.id;
@@ -1992,16 +2013,21 @@ window.openEditDestinationModal = (id) => {
   const statusEl = document.getElementById('dest_status');
   if (statusEl) statusEl.value = (dest.is_published !== 0 && dest.is_popular !== 0) ? '1' : '0';
 
+  // Clear previous file input so stale files are never re-submitted
+  const fileInput = document.getElementById('dest_image_file');
+  if (fileInput) fileInput.value = '';
+
+  const curImg = dest.image_url || dest.imageUrl || dest.image || dest.photo || '';
   const urlInput = document.getElementById('dest_image_url');
   const previewBox = document.getElementById('dest_image_preview_box');
   const previewImg = document.getElementById('dest_image_preview');
   const statusText = document.getElementById('dest_upload_status');
 
-  if (urlInput) urlInput.value = dest.image_url || '';
-  if (dest.image_url) {
+  if (urlInput) urlInput.value = curImg;
+  if (curImg) {
     if (previewBox) previewBox.style.display = 'flex';
-    if (previewImg) previewImg.src = dest.image_url;
-    if (statusText) statusText.textContent = dest.image_url.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Destination Photo';
+    if (previewImg) previewImg.src = curImg;
+    if (statusText) statusText.textContent = curImg.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Destination Photo';
   } else {
     if (previewBox) previewBox.style.display = 'none';
   }
