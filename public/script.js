@@ -4,7 +4,7 @@
  * Dispatch Hotline: +91 88868 30755 / +91 97009 35888
  */
 
-import { db, doc, onSnapshot, getDoc, collection } from './firebase-config.js?v=1793990000000';
+import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794000000000';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. DOM Elements
@@ -1056,8 +1056,60 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     console.warn('Firestore initialization note:', err.message);
   }
 
-  // 2. Individual Collection Listeners for Direct Admin Updates
+  // 2. Individual Collection Direct Query & Listeners for Direct Admin Updates
   try {
+    Promise.all([
+      getDocs(collection(db, 'destinations')),
+      getDocs(collection(db, 'fleet')),
+      getDocs(collection(db, 'trips'))
+    ]).then(([destSnap, fleetSnap, tripSnap]) => {
+      if (destSnap && !destSnap.empty) {
+        const destList = [];
+        destSnap.forEach(d => {
+          const item = d.data();
+          if (item) {
+            const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+            const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+            destList.push({ ...item, id: idVal, image_url: imgUrl });
+          }
+        });
+        if (destList.length > 0) {
+          destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+          applyWebsiteData({ destinations: destList }, 'firestore');
+        }
+      }
+      if (fleetSnap && !fleetSnap.empty) {
+        const fleetList = [];
+        fleetSnap.forEach(d => {
+          const item = d.data();
+          if (item) {
+            const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+            const imgUrl = item.image_url || item.imageUrl || item.image || '';
+            fleetList.push({ ...item, id: idVal, image_url: imgUrl });
+          }
+        });
+        if (fleetList.length > 0) {
+          fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+          applyWebsiteData({ fleet: fleetList }, 'firestore');
+        }
+      }
+      if (tripSnap && !tripSnap.empty) {
+        const tripList = [];
+        tripSnap.forEach(d => {
+          const item = d.data();
+          if (item) {
+            const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+            const imgUrl = item.image_url || item.imageUrl || item.image || '';
+            tripList.push({ ...item, id: idVal, image_url: imgUrl });
+          }
+        });
+        if (tripList.length > 0) {
+          tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+          applyWebsiteData({ trips: tripList }, 'firestore');
+        }
+      }
+    }).catch(() => {});
+
     onSnapshot(collection(db, 'fleet'), (snap) => {
       if (!snap.empty) {
         const fleetList = [];

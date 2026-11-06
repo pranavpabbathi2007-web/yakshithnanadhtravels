@@ -28,7 +28,7 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1793990000000';
+} from './firebase-sdk.js?v=1794000000000';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -98,6 +98,8 @@ async function initAdminCloudState() {
 }
 
 async function _doInitAdminCloudState() {
+  console.log('⚡ [Cloud Init] Starting Cloud Firestore state initialization...');
+
   // 1. Immediately hydrate memory & storage from local cache so the UI is responsive with 0ms wait
   allFleetData = getStorage('fleet', SEED_DATA.fleet);
   allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
@@ -110,44 +112,13 @@ async function _doInitAdminCloudState() {
   if (!liveSnapshotAttached) {
     liveSnapshotAttached = true;
     try {
+      // Monolithic site_content listener ONLY synchronizes services and settings
+      // Fleet, destinations, and trips have dedicated collection listeners below to prevent image overwrites
       onSnapshot(docRef, (liveSnap) => {
         if (liveSnap && liveSnap.exists && liveSnap.exists()) {
           const liveData = liveSnap.data();
           if (liveData && liveData.updated_at) {
             let changed = false;
-            if (Array.isArray(liveData.fleet) && liveData.fleet.length > 0) {
-              const currentFleet = allFleetData || [];
-              allFleetData = liveData.fleet.map(inc => {
-                const existing = currentFleet.find(f => String(f.id) === String(inc.id));
-                const incImg = inc.image_url || inc.imageUrl || inc.image || '';
-                const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || '') : '';
-                return { ...inc, image_url: existImg || incImg };
-              });
-              setStorage('fleet', allFleetData);
-              changed = true;
-            }
-            if (Array.isArray(liveData.destinations) && liveData.destinations.length > 0) {
-              const currentDest = allDestinationsData || [];
-              allDestinationsData = liveData.destinations.map(inc => {
-                const existing = currentDest.find(d => String(d.id) === String(inc.id));
-                const incImg = inc.image_url || inc.imageUrl || inc.image || inc.photo || '';
-                const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || existing.photo || '') : '';
-                return { ...inc, image_url: existImg || incImg };
-              });
-              setStorage('destinations', allDestinationsData);
-              changed = true;
-            }
-            if (Array.isArray(liveData.trips) && liveData.trips.length > 0) {
-              const currentTrips = allTripsData || [];
-              allTripsData = liveData.trips.map(inc => {
-                const existing = currentTrips.find(t => String(t.id) === String(inc.id));
-                const incImg = inc.image_url || inc.imageUrl || inc.image || '';
-                const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || '') : '';
-                return { ...inc, image_url: existImg || incImg };
-              });
-              setStorage('trips', allTripsData);
-              changed = true;
-            }
             if (Array.isArray(liveData.services) && liveData.services.length > 0) {
               allServicesData = liveData.services;
               setStorage('services', allServicesData);
@@ -155,13 +126,11 @@ async function _doInitAdminCloudState() {
             }
             if (liveData.settings && typeof liveData.settings === 'object') {
               setStorage('settings', liveData.settings);
+              changed = true;
             }
             if (changed) {
-              console.log('⚡ Real-time sync: Live state received from Cloud Firestore.');
+              console.log('⚡ [Real-time Sync] Settings/services updated from Cloud Firestore monolith.');
               loadStats().catch(() => {});
-              loadFleet().catch(() => {});
-              loadDestinations().catch(() => {});
-              loadTrips().catch(() => {});
               loadServices().catch(() => {});
               loadSettings().catch(() => {});
             }
@@ -171,7 +140,7 @@ async function _doInitAdminCloudState() {
         console.debug('Admin onSnapshot status:', err.message);
       });
 
-      // Direct collection listeners for real-time CRUD and zero image loss
+      // Dedicated collection listeners: authoritative source for fleet, destinations, and trips
       onSnapshot(collection(db, 'destinations'), (snap) => {
         if (!snap.empty) {
           const destList = [];
@@ -187,6 +156,7 @@ async function _doInitAdminCloudState() {
             destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
             allDestinationsData = destList;
             setStorage('destinations', allDestinationsData);
+            console.log('📍 [Real-time Destinations] Live collection updated from Firestore. Count:', destList.length);
             loadDestinations(false).catch(() => {});
           }
         }
@@ -207,6 +177,7 @@ async function _doInitAdminCloudState() {
             fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
             allFleetData = fleetList;
             setStorage('fleet', allFleetData);
+            console.log('🚗 [Real-time Fleet] Live collection updated from Firestore. Count:', fleetList.length);
             loadFleet(false).catch(() => {});
           }
         }
@@ -227,6 +198,7 @@ async function _doInitAdminCloudState() {
             tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
             allTripsData = tripList;
             setStorage('trips', allTripsData);
+            console.log('🧳 [Real-time Trips] Live collection updated from Firestore. Count:', tripList.length);
             loadTrips(false).catch(() => {});
           }
         }
@@ -238,11 +210,12 @@ async function _doInitAdminCloudState() {
 
   // 3. Load initial documents directly from Firestore collections (guarantees latest images on refresh)
   try {
+    console.log('🔄 [Admin Hydration] Querying Firestore collections directly...');
     const [destSnap, fleetSnap, tripSnap, docSnap] = await Promise.all([
-      getDocs(collection(db, 'destinations')).catch(() => null),
-      getDocs(collection(db, 'fleet')).catch(() => null),
-      getDocs(collection(db, 'trips')).catch(() => null),
-      getDoc(docRef).catch(() => null)
+      getDocs(collection(db, 'destinations')).catch(err => { console.warn('destSnap warn:', err.message); return null; }),
+      getDocs(collection(db, 'fleet')).catch(err => { console.warn('fleetSnap warn:', err.message); return null; }),
+      getDocs(collection(db, 'trips')).catch(err => { console.warn('tripSnap warn:', err.message); return null; }),
+      getDoc(docRef).catch(err => { console.warn('docSnap warn:', err.message); return null; })
     ]);
 
     if (destSnap && !destSnap.empty) {
@@ -259,6 +232,12 @@ async function _doInitAdminCloudState() {
         destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
         allDestinationsData = destList;
         setStorage('destinations', allDestinationsData);
+        console.log('📍 [Admin Hydration] Loaded destinations from Firestore collection:', destList.map(d => ({ id: d.id, name: d.name, has_image: !!d.image_url })));
+      }
+    } else {
+      console.log('📍 [Admin Hydration] No destinations in Firestore collection yet. Seeding default destinations...');
+      for (const d of SEED_DATA.destinations) {
+        saveDestinationToFirestore(d).catch(() => {});
       }
     }
 
@@ -276,6 +255,12 @@ async function _doInitAdminCloudState() {
         fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
         allFleetData = fleetList;
         setStorage('fleet', allFleetData);
+        console.log('🚗 [Admin Hydration] Loaded fleet from Firestore collection:', fleetList.map(v => ({ id: v.id, name: v.model_name, has_image: !!v.image_url })));
+      }
+    } else {
+      console.log('🚗 [Admin Hydration] No fleet in Firestore collection yet. Seeding default fleet...');
+      for (const v of SEED_DATA.fleet) {
+        saveVehicleToFirestore(v).catch(() => {});
       }
     }
 
@@ -293,6 +278,12 @@ async function _doInitAdminCloudState() {
         tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
         allTripsData = tripList;
         setStorage('trips', allTripsData);
+        console.log('🧳 [Admin Hydration] Loaded trips from Firestore collection:', tripList.map(t => ({ id: t.id, title: t.title || t.name, has_image: !!t.image_url })));
+      }
+    } else {
+      console.log('🧳 [Admin Hydration] No trips in Firestore collection yet. Seeding default trips...');
+      for (const t of SEED_DATA.trips) {
+        saveTripToFirestore(t).catch(() => {});
       }
     }
 
@@ -306,27 +297,15 @@ async function _doInitAdminCloudState() {
         if (cData.settings && typeof cData.settings === 'object') {
           setStorage('settings', cData.settings);
         }
-        if ((!allDestinationsData || allDestinationsData.length === 0) && Array.isArray(cData.destinations) && cData.destinations.length > 0) {
-          allDestinationsData = cData.destinations;
-          setStorage('destinations', allDestinationsData);
-        }
-        if ((!allFleetData || allFleetData.length === 0) && Array.isArray(cData.fleet) && cData.fleet.length > 0) {
-          allFleetData = cData.fleet;
-          setStorage('fleet', allFleetData);
-        }
-        if ((!allTripsData || allTripsData.length === 0) && Array.isArray(cData.trips) && cData.trips.length > 0) {
-          allTripsData = cData.trips;
-          setStorage('trips', allTripsData);
-        }
-        console.log('✅ Loaded latest cloud state from Cloud Firestore.');
-        return true;
       }
     } else if (docSnap && !docSnap.exists()) {
-      console.log('Initializing baseline cloud state in Cloud Firestore...');
+      console.log('⚡ [Admin Hydration] Baseline site_content document not found. Syncing...');
       syncStateToFirebaseCloud().catch(() => {});
     }
+    console.log('✅ [Admin Hydration] Cloud state initialization complete!');
+    return true;
   } catch (err) {
-    console.debug('Firestore initial load note:', err.message);
+    console.error('❌ [Admin Hydration] Error loading cloud collections:', err);
   }
 
   // 4. Secondary fallback: check local API server snapshot if available
@@ -1053,18 +1032,22 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving Vehicle...';
       }
 
+      console.log(`🚗 [Vehicle Save] Form submitted for ID: ${id || '(new vehicle)'}`);
+
       const activeMode = activeImageModes['veh'] || 'file';
       const pickedFile = vehicleImageFile && vehicleImageFile.files && vehicleImageFile.files[0];
       let imageUrl = document.getElementById('veh_image_url').value.trim();
 
       // If in file mode and file chosen, upload it
       if (activeMode === 'file' && pickedFile) {
+        console.log(`🚗 [Vehicle Save] Uploading photo: ${pickedFile.name} (${pickedFile.size} bytes)`);
         if (saveBtn) saveBtn.textContent = 'Uploading Vehicle Image...';
         try {
           const uploaded = await uploadImageToFirebaseStorage(pickedFile, 'vehicles');
           if (uploaded && uploaded.url) {
             imageUrl = uploaded.url;
             document.getElementById('veh_image_url').value = imageUrl;
+            console.log(`🚗 [Vehicle Save] Image upload success! Source: ${uploaded.source}, URL: ${imageUrl.startsWith('data:') ? 'Base64 data URL (' + imageUrl.length + ' chars)' : imageUrl}`);
           }
         } catch (err) {
           console.warn('Vehicle image upload error on submit:', err.message);
@@ -1076,6 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const existing = allFleetData.find(v => String(v.id) === String(id));
         if (existing && existing.image_url) {
           imageUrl = existing.image_url;
+          console.log(`🚗 [Vehicle Save] Preserving existing vehicle image URL: ${imageUrl.startsWith('data:') ? 'Base64 data URL' : imageUrl}`);
         }
       }
 
@@ -1118,8 +1102,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setStorage('fleet', allFleetData);
 
+      console.log(`🚗 [Vehicle Save] Saving to Firestore "fleet" collection doc ID: ${payload.id}...`, {
+        model_name: payload.model_name,
+        category: payload.category,
+        rate_per_km: payload.rate_per_km,
+        has_image: !!payload.image_url
+      });
+
       // Save directly to Firestore fleet collection & admin_images
-      await saveVehicleToFirestore(payload);
+      const savedToFirestore = await saveVehicleToFirestore(payload);
+      console.log(`🚗 [Vehicle Save] Firestore write: ${savedToFirestore ? '✅ SUCCESS' : '❌ ERROR'}`);
+
       if (payload.image_url) {
         await recordAdminImageToFirestore('vehicle', payload.model_name, payload.image_url);
       }
@@ -1137,6 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 3. Immediately sync to Firebase Cloud Storage and server memoryStore
       await syncStateToFirebaseCloud();
+      console.log(`🚗 [Vehicle Save] Complete! Total fleet vehicles now: ${allFleetData.length}`);
 
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -1194,18 +1188,22 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving Destination...';
       }
 
+      console.log(`📍 [Destination Save] Form submitted for ID: ${id || '(new destination)'}`);
+
       const activeMode = (typeof activeImageModes !== 'undefined' && activeImageModes['dest']) || 'file';
       const destFile = (activeMode === 'file') ? (destinationImageFile && destinationImageFile.files && destinationImageFile.files[0]) : null;
       let imageUrl = document.getElementById('dest_image_url').value.trim();
 
       // If a new file is chosen in file mode, upload it
       if (activeMode === 'file' && destFile) {
+        console.log(`📍 [Destination Save] Uploading photo: ${destFile.name} (${destFile.size} bytes)`);
         if (saveBtn) saveBtn.textContent = 'Uploading Destination Image...';
         try {
           const uploaded = await uploadImageToFirebaseStorage(destFile, 'destinations');
           if (uploaded && uploaded.url) {
             imageUrl = uploaded.url;
             document.getElementById('dest_image_url').value = imageUrl;
+            console.log(`📍 [Destination Save] Image upload success! Source: ${uploaded.source}, URL: ${imageUrl.startsWith('data:') ? 'Base64 data URL (' + imageUrl.length + ' chars)' : imageUrl}`);
           }
         } catch (err) {
           console.warn('Destination image upload error on submit:', err.message);
@@ -1217,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const existing = allDestinationsData.find(d => String(d.id) === String(id));
         if (existing && existing.image_url) {
           imageUrl = existing.image_url;
+          console.log(`📍 [Destination Save] Preserving existing destination image URL: ${imageUrl.startsWith('data:') ? 'Base64 data URL' : imageUrl}`);
         }
       }
 
@@ -1251,8 +1250,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setStorage('destinations', allDestinationsData);
 
+      console.log(`📍 [Destination Save] Saving to Firestore "destinations" collection doc ID: ${payload.id}...`, {
+        name: payload.name,
+        distance: payload.distance,
+        duration: payload.duration,
+        has_image: !!payload.image_url
+      });
+
       // Save directly to Firestore destinations collection & admin_images
-      await saveDestinationToFirestore(payload);
+      const savedToFirestore = await saveDestinationToFirestore(payload);
+      console.log(`📍 [Destination Save] Firestore write: ${savedToFirestore ? '✅ SUCCESS' : '❌ ERROR'}`);
+
       if (payload.image_url) {
         await recordAdminImageToFirestore('destination', payload.name, payload.image_url);
       }
@@ -1268,6 +1276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {}
 
       await syncStateToFirebaseCloud();
+      console.log(`📍 [Destination Save] Complete! Total destinations now: ${allDestinationsData.length}`);
 
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -2163,8 +2172,18 @@ window.openAddVehicleModal = () => {
 };
 
 window.openEditVehicleModal = (id) => {
-  const veh = allFleetData.find(v => v.id === id);
-  if (!veh) return;
+  const veh = allFleetData.find(v => String(v.id) === String(id));
+  if (!veh) {
+    console.warn(`🚗 [Admin] Edit vehicle not found for ID: ${id}`);
+    return;
+  }
+  console.log(`🚗 [Admin] Opening Edit Vehicle modal for: ${veh.model_name} (ID: ${veh.id})`, {
+    model_name: veh.model_name,
+    category: veh.category,
+    has_image: !!veh.image_url,
+    image_type: veh.image_url ? (veh.image_url.startsWith('data:') ? 'Base64' : 'URL') : 'None'
+  });
+
   document.getElementById('vehicleModalTitle').textContent = 'Edit Vehicle';
   document.getElementById('vehicleId').value = veh.id;
   document.getElementById('veh_name').value = veh.model_name || '';
@@ -2186,6 +2205,10 @@ window.openEditVehicleModal = (id) => {
   const statusEl = document.getElementById('veh_status');
   if (statusEl) statusEl.value = (veh.is_published !== 0 && veh.is_available !== 0) ? '1' : '0';
 
+  // Clear previous file input so stale files are never re-submitted
+  const fileInput = document.getElementById('veh_image_file');
+  if (fileInput) fileInput.value = '';
+
   const curImg = veh.image_url || '';
   const urlInput = document.getElementById('veh_image_url');
   const previewBox = document.getElementById('veh_image_preview_box');
@@ -2196,7 +2219,11 @@ window.openEditVehicleModal = (id) => {
   if (curImg) {
     if (previewBox) previewBox.style.display = 'flex';
     if (previewImg) previewImg.src = curImg;
-    if (statusText) statusText.textContent = curImg.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Vehicle Photo';
+    if (statusText) {
+      statusText.textContent = curImg.includes('firebasestorage')
+        ? 'Stored in Firebase Cloud'
+        : (curImg.startsWith('data:') ? 'Stored in Cloud Firestore' : 'Current Vehicle Photo');
+    }
   } else {
     if (previewBox) previewBox.style.display = 'none';
   }
@@ -2225,7 +2252,18 @@ window.openAddDestinationModal = () => {
 
 window.openEditDestinationModal = (id) => {
   const dest = allDestinationsData.find(d => String(d.id) === String(id));
-  if (!dest) return;
+  if (!dest) {
+    console.warn(`📍 [Admin] Edit destination not found for ID: ${id}`);
+    return;
+  }
+  console.log(`📍 [Admin] Opening Edit Destination modal for: ${dest.name} (ID: ${dest.id})`, {
+    name: dest.name,
+    distance: dest.distance,
+    duration: dest.duration,
+    has_image: !!dest.image_url,
+    image_type: dest.image_url ? (dest.image_url.startsWith('data:') ? 'Base64' : 'URL') : 'None'
+  });
+
   document.getElementById('destModalTitle').textContent = 'Edit Destination';
   document.getElementById('destId').value = dest.id;
   document.getElementById('dest_name').value = dest.name || '';
@@ -2251,7 +2289,11 @@ window.openEditDestinationModal = (id) => {
   if (curImg) {
     if (previewBox) previewBox.style.display = 'flex';
     if (previewImg) previewImg.src = curImg;
-    if (statusText) statusText.textContent = curImg.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Destination Photo';
+    if (statusText) {
+      statusText.textContent = curImg.includes('firebasestorage')
+        ? 'Stored in Firebase Cloud'
+        : (curImg.startsWith('data:') ? 'Stored in Cloud Firestore' : 'Current Destination Photo');
+    }
   } else {
     if (previewBox) previewBox.style.display = 'none';
   }
@@ -2280,8 +2322,16 @@ window.openAddTripModal = () => {
 };
 
 window.openEditTripModal = (id) => {
-  const trip = allTripsData.find(t => t.id === id);
-  if (!trip) return;
+  const trip = allTripsData.find(t => String(t.id) === String(id));
+  if (!trip) {
+    console.warn(`🧳 [Admin] Edit trip package not found for ID: ${id}`);
+    return;
+  }
+  console.log(`🧳 [Admin] Opening Edit Trip modal for: ${trip.title || trip.name} (ID: ${trip.id})`, {
+    title: trip.title || trip.name,
+    starting_price: trip.starting_price,
+    has_image: !!trip.image_url
+  });
   document.getElementById('tripModalTitle').textContent = 'Edit Trip Package';
   document.getElementById('tripId').value = trip.id;
   document.getElementById('trip_title').value = trip.title || trip.name || '';
