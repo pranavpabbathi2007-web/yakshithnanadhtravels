@@ -114,17 +114,35 @@ async function _doInitAdminCloudState() {
           if (liveData && liveData.updated_at) {
             let changed = false;
             if (Array.isArray(liveData.fleet) && liveData.fleet.length > 0) {
-              allFleetData = liveData.fleet;
+              const currentFleet = allFleetData || [];
+              allFleetData = liveData.fleet.map(inc => {
+                const existing = currentFleet.find(f => String(f.id) === String(inc.id));
+                const incImg = inc.image_url || inc.imageUrl || inc.image || '';
+                const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || '') : '';
+                return { ...inc, image_url: incImg || existImg };
+              });
               setStorage('fleet', allFleetData);
               changed = true;
             }
             if (Array.isArray(liveData.destinations) && liveData.destinations.length > 0) {
-              allDestinationsData = liveData.destinations;
+              const currentDest = allDestinationsData || [];
+              allDestinationsData = liveData.destinations.map(inc => {
+                const existing = currentDest.find(d => String(d.id) === String(inc.id));
+                const incImg = inc.image_url || inc.imageUrl || inc.image || inc.photo || '';
+                const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || existing.photo || '') : '';
+                return { ...inc, image_url: incImg || existImg };
+              });
               setStorage('destinations', allDestinationsData);
               changed = true;
             }
             if (Array.isArray(liveData.trips) && liveData.trips.length > 0) {
-              allTripsData = liveData.trips;
+              const currentTrips = allTripsData || [];
+              allTripsData = liveData.trips.map(inc => {
+                const existing = currentTrips.find(t => String(t.id) === String(inc.id));
+                const incImg = inc.image_url || inc.imageUrl || inc.image || '';
+                const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || '') : '';
+                return { ...inc, image_url: incImg || existImg };
+              });
               setStorage('trips', allTripsData);
               changed = true;
             }
@@ -151,7 +169,7 @@ async function _doInitAdminCloudState() {
         console.debug('Admin onSnapshot status:', err.message);
       });
 
-      // Also listen to individual destinations collection directly
+      // Direct collection listeners for real-time CRUD and zero image loss
       onSnapshot(collection(db, 'destinations'), (snap) => {
         if (!snap.empty) {
           const destList = [];
@@ -171,6 +189,46 @@ async function _doInitAdminCloudState() {
           }
         }
       }, (err) => console.debug('Admin destinations collection listener:', err.message));
+
+      onSnapshot(collection(db, 'fleet'), (snap) => {
+        if (!snap.empty) {
+          const fleetList = [];
+          snap.forEach(d => {
+            const item = d.data();
+            if (item) {
+              const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+              const imgUrl = item.image_url || item.imageUrl || item.image || '';
+              fleetList.push({ ...item, id: idVal, image_url: imgUrl });
+            }
+          });
+          if (fleetList.length > 0) {
+            fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            allFleetData = fleetList;
+            setStorage('fleet', allFleetData);
+            loadFleet(false).catch(() => {});
+          }
+        }
+      }, (err) => console.debug('Admin fleet collection listener:', err.message));
+
+      onSnapshot(collection(db, 'trips'), (snap) => {
+        if (!snap.empty) {
+          const tripList = [];
+          snap.forEach(d => {
+            const item = d.data();
+            if (item) {
+              const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+              const imgUrl = item.image_url || item.imageUrl || item.image || '';
+              tripList.push({ ...item, id: idVal, image_url: imgUrl });
+            }
+          });
+          if (tripList.length > 0) {
+            tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            allTripsData = tripList;
+            setStorage('trips', allTripsData);
+            loadTrips(false).catch(() => {});
+          }
+        }
+      }, (err) => console.debug('Admin trips collection listener:', err.message));
     } catch (e) {
       console.debug('Snapshot listener setup note:', e.message);
     }

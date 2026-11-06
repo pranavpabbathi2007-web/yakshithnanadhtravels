@@ -59,6 +59,12 @@ try {
 }
 
 const storage = getStorage(app);
+try {
+  storage.maxUploadRetryTime = 1500;
+  storage.maxOperationRetryTime = 1500;
+} catch (e) {}
+
+let isFirebaseStorageFunctional = true;
 
 // Safe Performance stub (prevents 503 network errors from firebaselogging-pa.googleapis.com)
 const perf = null;
@@ -229,7 +235,7 @@ function sanitizeForFirestore(obj) {
  * Resizes large camera photos to max 900px and outputs optimized JPEG
  * Returns { blob, dataUrl, width, height }
  */
-function compressImageFile(file, maxDimension = 720, quality = 0.70) {
+function compressImageFile(file, maxDimension = 640, quality = 0.65) {
   return new Promise((resolve, reject) => {
     if (!file) return reject(new Error('No file provided for compression.'));
     if (!file.type || !file.type.startsWith('image/')) {
@@ -287,26 +293,23 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
     throw new Error('No file provided for upload.');
   }
 
-  // 1. Sanitize filename and create unique storage path
-  const rawName = file.name || 'image.jpg';
-  const cleanName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const storagePath = `${folder}/${uniqueId}_${cleanName}`;
-
-  // 2. Client-side compression for high performance and fallback capability (~35KB)
+  // 1. Client-side high-efficiency compression (~20-25KB, crisp 640px)
   let compressed = null;
   try {
-    compressed = await compressImageFile(file, 720, 0.70);
+    compressed = await compressImageFile(file, 640, 0.65);
   } catch (compErr) {
     console.warn('Image pre-compression note:', compErr.message);
   }
 
   const uploadPayload = (compressed && compressed.blob) ? compressed.blob : file;
   const mimeType = (compressed && compressed.blob) ? 'image/jpeg' : (file.type || 'image/jpeg');
+  const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const cleanName = (file.name || 'image.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `${folder}/${uniqueId}_${cleanName}`;
 
-  // 3. Attempt direct Firebase Storage upload
-  try {
-    if (storage) {
+  // 2. Attempt direct Firebase Storage upload only if functional
+  if (storage && isFirebaseStorageFunctional) {
+    try {
       const storageRef = ref(storage, storagePath);
       const metadata = {
         contentType: mimeType,
@@ -317,10 +320,9 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
         }
       };
 
-      // 4-second timeout safeguard for CORS preflight / network
       const uploadPromise = uploadBytes(storageRef, uploadPayload, metadata);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase Storage upload timeout')), 4000)
+        setTimeout(() => reject(new Error('Storage timeout')), 2000)
       );
 
       const snapshot = await Promise.race([uploadPromise, timeoutPromise]);
@@ -335,26 +337,16 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
           source: 'firebase_storage'
         };
       }
+    } catch (storageErr) {
+      // Mark as unavailable for remainder of session to prevent flooding console with CORS preflight errors
+      isFirebaseStorageFunctional = false;
+      console.debug('Firebase Storage direct upload note (switching to ultra-fast Firestore cloud fallback).');
     }
-  } catch (storageErr) {
-    console.debug(`Firebase Storage upload note for [${storagePath}] (using cloud fallback):`, storageErr.message);
   }
 
-  // 4. Serverless API upload sync fallback
+  // 3. Ultra-fast, zero-CORS Cloud Image (~25KB)
+  // Stored directly in Firestore collection documents (fleet/{id}, destinations/{id}, trips/{id})
   if (compressed && compressed.dataUrl) {
-    try {
-      fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: `${uniqueId}_${cleanName}`,
-          image_data: compressed.dataUrl,
-          folder: folder
-        })
-      }).catch(() => {});
-    } catch (e) {}
-
-    // 5. Permanent fallback: optimized base64 Data URL (Never 404s, works across Firestore & all devices)
     return {
       success: true,
       url: compressed.dataUrl,
@@ -393,32 +385,33 @@ async function syncAllToFirestore(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
   const promises = [];
 
-  // 1. Unified snapshot for instant public website 1-read hydration (Guarded against Firestore 1MB document limit)
-  let siteContentDoc = sanitizeForFirestore(snapshot);
-  try {
-    const rawLen = JSON.stringify(siteContentDoc).length;
-    if (rawLen > 750000) {
-      // Strip oversized base64 strings from monolithic snapshot to guarantee it stays well under 1MB
-      // Individual collections (fleet/{id}, destinations/{id}, trips/{id}) store each document independently
-      const safeDoc = JSON.parse(JSON.stringify(siteContentDoc));
-      const trimList = (list) => {
-        if (!Array.isArray(list)) return list;
-        return list.map(item => {
-          if (item && item.image_url && item.image_url.startsWith('data:') && item.image_url.length > 25000) {
-            return { ...item, image_url: '' };
-          }
-          return item;
-        });
-      };
-      safeDoc.fleet = trimList(safeDoc.fleet);
-      safeDoc.destinations = trimList(safeDoc.destinations);
-      safeDoc.trips = trimList(safeDoc.trips);
-      siteContentDoc = safeDoc;
-    }
-  } catch (e) {}
+  // 1. Unified snapshot: Strip ALL base64 data URLs from site_content/data
+  // This resets and replaces any bloated document in Firestore, guaranteeing size is ~12KB (well under 1MB)
+  // The full images are stored in the individual collection documents (fleet/{id}, destinations/{id}, trips/{id})
+  const cleanForMonolith = (snap) => {
+    const clean = JSON.parse(JSON.stringify(snap));
+    const stripDataUrls = (list) => {
+      if (!Array.isArray(list)) return list;
+      return list.map(item => {
+        if (!item) return item;
+        const copy = { ...item };
+        if (typeof copy.image_url === 'string' && copy.image_url.startsWith('data:')) {
+          copy.image_url = '';
+        }
+        return copy;
+      });
+    };
+    clean.fleet = stripDataUrls(clean.fleet);
+    clean.destinations = stripDataUrls(clean.destinations);
+    clean.trips = stripDataUrls(clean.trips);
+    return clean;
+  };
 
+  const lightweightSnapshot = sanitizeForFirestore(cleanForMonolith(snapshot));
+
+  // Note: merge: false completely resets and cleans up any existing bloated document in Cloud Firestore
   promises.push(
-    setDoc(doc(db, 'site_content', 'data'), siteContentDoc, { merge: true })
+    setDoc(doc(db, 'site_content', 'data'), lightweightSnapshot)
       .catch(e => console.warn('Snapshot write note:', e.message))
   );
 

@@ -607,7 +607,32 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
 
     // Preserve latest state internally
     if (data.settings && typeof data.settings === 'object') currentSiteState.settings = data.settings;
-    if (Array.isArray(data.fleet) && data.fleet.length > 0) currentSiteState.fleet = data.fleet;
+    if (Array.isArray(data.fleet) && data.fleet.length > 0) {
+      if (!currentSiteState.fleet || currentSiteState.fleet.length === 0) {
+        currentSiteState.fleet = data.fleet.map(f => ({
+          ...f,
+          image_url: f.image_url || f.imageUrl || f.image || ''
+        }));
+      } else {
+        const mergedFleet = [...currentSiteState.fleet];
+        for (const incoming of data.fleet) {
+          const idx = mergedFleet.findIndex(m => String(m.id) === String(incoming.id));
+          const incImg = incoming.image_url || incoming.imageUrl || incoming.image || '';
+          if (idx === -1) {
+            mergedFleet.push({ ...incoming, image_url: incImg });
+          } else {
+            const existingImg = mergedFleet[idx].image_url || '';
+            const keepExistingImg = existingImg.includes('firebasestorage') && !incImg.includes('firebasestorage');
+            mergedFleet[idx] = {
+              ...mergedFleet[idx],
+              ...incoming,
+              image_url: keepExistingImg ? existingImg : (incImg || existingImg)
+            };
+          }
+        }
+        currentSiteState.fleet = mergedFleet;
+      }
+    }
     if (Array.isArray(data.destinations) && data.destinations.length > 0) {
       if (!currentSiteState.destinations || currentSiteState.destinations.length === 0) {
         currentSiteState.destinations = data.destinations.map(d => ({
@@ -634,7 +659,32 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         currentSiteState.destinations = merged;
       }
     }
-    if (Array.isArray(data.trips) && data.trips.length > 0) currentSiteState.trips = data.trips;
+    if (Array.isArray(data.trips) && data.trips.length > 0) {
+      if (!currentSiteState.trips || currentSiteState.trips.length === 0) {
+        currentSiteState.trips = data.trips.map(t => ({
+          ...t,
+          image_url: t.image_url || t.imageUrl || t.image || ''
+        }));
+      } else {
+        const mergedTrips = [...currentSiteState.trips];
+        for (const incoming of data.trips) {
+          const idx = mergedTrips.findIndex(m => String(m.id) === String(incoming.id));
+          const incImg = incoming.image_url || incoming.imageUrl || incoming.image || '';
+          if (idx === -1) {
+            mergedTrips.push({ ...incoming, image_url: incImg });
+          } else {
+            const existingImg = mergedTrips[idx].image_url || '';
+            const keepExistingImg = existingImg.includes('firebasestorage') && !incImg.includes('firebasestorage');
+            mergedTrips[idx] = {
+              ...mergedTrips[idx],
+              ...incoming,
+              image_url: keepExistingImg ? existingImg : (incImg || existingImg)
+            };
+          }
+        }
+        currentSiteState.trips = mergedTrips;
+      }
+    }
     if (Array.isArray(data.services) && data.services.length > 0) currentSiteState.services = data.services;
 
     // Working effective data
