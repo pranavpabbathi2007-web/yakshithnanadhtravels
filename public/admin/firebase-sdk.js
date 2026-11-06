@@ -64,7 +64,12 @@ try {
   storage.maxOperationRetryTime = 1500;
 } catch (e) {}
 
-let isFirebaseStorageFunctional = true;
+// Direct Firebase Storage upload flag:
+// Direct storage upload is bypassed by default because the bucket gs://yakshithnandhtravels.firebasestorage.app
+// is inactive/unconfigured in GCP, which triggers browser CORS preflight errors and network retries.
+// The website uses the ultra-fast client compression pipeline (~20KB JPEG) directly saved to Cloud Firestore collections.
+const DIRECT_STORAGE_BUCKET_ACTIVE = false;
+let isFirebaseStorageFunctional = false;
 
 // Safe Performance stub (prevents 503 network errors from firebaselogging-pa.googleapis.com)
 const perf = null;
@@ -307,8 +312,8 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
   const cleanName = (file.name || 'image.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
   const storagePath = `${folder}/${uniqueId}_${cleanName}`;
 
-  // 2. Attempt direct Firebase Storage upload only if functional
-  if (storage && isFirebaseStorageFunctional) {
+  // 2. Direct Firebase Storage upload (only if bucket is explicitly active)
+  if (DIRECT_STORAGE_BUCKET_ACTIVE && storage && isFirebaseStorageFunctional) {
     try {
       const storageRef = ref(storage, storagePath);
       const metadata = {
@@ -338,7 +343,6 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
         };
       }
     } catch (storageErr) {
-      // Mark as unavailable for remainder of session to prevent flooding console with CORS preflight errors
       isFirebaseStorageFunctional = false;
       console.debug('Firebase Storage direct upload note (switching to ultra-fast Firestore cloud fallback).');
     }
@@ -385,25 +389,28 @@ async function syncAllToFirestore(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
   const promises = [];
 
-  // 1. Unified snapshot: Strip ALL base64 data URLs from site_content/data
-  // This resets and replaces any bloated document in Firestore, guaranteeing size is ~12KB (well under 1MB)
-  // The full images are stored in the individual collection documents (fleet/{id}, destinations/{id}, trips/{id})
-  const cleanForMonolith = (snap) => {
-    const clean = JSON.parse(JSON.stringify(snap));
-    const stripDataUrls = (list) => {
-      if (!Array.isArray(list)) return list;
-      return list.map(item => {
-        if (!item) return item;
-        const copy = { ...item };
-        if (typeof copy.image_url === 'string' && copy.image_url.startsWith('data:')) {
-          copy.image_url = '';
+  // 1. Unified snapshot: Recursively strip ALL base64 data URLs and oversized strings from site_content/data
+  // This resets and replaces any bloated document in Firestore, guaranteeing size is ~12-15KB (far below the 1MB limit).
+  // The full images are stored in the individual collection documents (fleet/{id}, destinations/{id}, trips/{id}).
+  const cleanForMonolith = (obj) => {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) {
+      return obj.map(item => cleanForMonolith(item));
+    }
+    const clean = {};
+    for (const [key, val] of Object.entries(obj)) {
+      if (typeof val === 'string') {
+        if (val.startsWith('data:image/') || val.startsWith('data:') || val.length > 10000) {
+          clean[key] = '';
+        } else {
+          clean[key] = val;
         }
-        return copy;
-      });
-    };
-    clean.fleet = stripDataUrls(clean.fleet);
-    clean.destinations = stripDataUrls(clean.destinations);
-    clean.trips = stripDataUrls(clean.trips);
+      } else if (val && typeof val === 'object') {
+        clean[key] = cleanForMonolith(val);
+      } else {
+        clean[key] = val;
+      }
+    }
     return clean;
   };
 
