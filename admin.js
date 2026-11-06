@@ -26,7 +26,7 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1793960000000';
+} from './firebase-sdk.js?v=1793970000000';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');

@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
@@ -18,7 +19,7 @@
     {
       "source": "/(.*)\\.(css|js)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
