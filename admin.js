@@ -7,7 +7,9 @@
 import {
   db,
   doc,
+  collection,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -26,7 +28,7 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1793970000000';
+} from './firebase-sdk.js?v=1793980000000';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -119,7 +121,7 @@ async function _doInitAdminCloudState() {
                 const existing = currentFleet.find(f => String(f.id) === String(inc.id));
                 const incImg = inc.image_url || inc.imageUrl || inc.image || '';
                 const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || '') : '';
-                return { ...inc, image_url: incImg || existImg };
+                return { ...inc, image_url: existImg || incImg };
               });
               setStorage('fleet', allFleetData);
               changed = true;
@@ -130,7 +132,7 @@ async function _doInitAdminCloudState() {
                 const existing = currentDest.find(d => String(d.id) === String(inc.id));
                 const incImg = inc.image_url || inc.imageUrl || inc.image || inc.photo || '';
                 const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || existing.photo || '') : '';
-                return { ...inc, image_url: incImg || existImg };
+                return { ...inc, image_url: existImg || incImg };
               });
               setStorage('destinations', allDestinationsData);
               changed = true;
@@ -141,7 +143,7 @@ async function _doInitAdminCloudState() {
                 const existing = currentTrips.find(t => String(t.id) === String(inc.id));
                 const incImg = inc.image_url || inc.imageUrl || inc.image || '';
                 const existImg = existing ? (existing.image_url || existing.imageUrl || existing.image || '') : '';
-                return { ...inc, image_url: incImg || existImg };
+                return { ...inc, image_url: existImg || incImg };
               });
               setStorage('trips', allTripsData);
               changed = true;
@@ -234,27 +236,69 @@ async function _doInitAdminCloudState() {
     }
   }
 
-  // 3. Load initial document with non-throwing safety window (resolves null instead of throwing on slow networks)
+  // 3. Load initial documents directly from Firestore collections (guarantees latest images on refresh)
   try {
-    const fetchDocPromise = getDoc(docRef).catch(() => null);
-    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 6000));
-    const snap = await Promise.race([fetchDocPromise, timeoutPromise]);
+    const [destSnap, fleetSnap, tripSnap, docSnap] = await Promise.all([
+      getDocs(collection(db, 'destinations')).catch(() => null),
+      getDocs(collection(db, 'fleet')).catch(() => null),
+      getDocs(collection(db, 'trips')).catch(() => null),
+      getDoc(docRef).catch(() => null)
+    ]);
 
-    if (snap && snap.exists && snap.exists()) {
-      const cData = snap.data();
+    if (destSnap && !destSnap.empty) {
+      const destList = [];
+      destSnap.forEach(d => {
+        const item = d.data();
+        if (item) {
+          const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+          const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+          destList.push({ ...item, id: idVal, image_url: imgUrl });
+        }
+      });
+      if (destList.length > 0) {
+        destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        allDestinationsData = destList;
+        setStorage('destinations', allDestinationsData);
+      }
+    }
+
+    if (fleetSnap && !fleetSnap.empty) {
+      const fleetList = [];
+      fleetSnap.forEach(d => {
+        const item = d.data();
+        if (item) {
+          const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+          const imgUrl = item.image_url || item.imageUrl || item.image || '';
+          fleetList.push({ ...item, id: idVal, image_url: imgUrl });
+        }
+      });
+      if (fleetList.length > 0) {
+        fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        allFleetData = fleetList;
+        setStorage('fleet', allFleetData);
+      }
+    }
+
+    if (tripSnap && !tripSnap.empty) {
+      const tripList = [];
+      tripSnap.forEach(d => {
+        const item = d.data();
+        if (item) {
+          const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+          const imgUrl = item.image_url || item.imageUrl || item.image || '';
+          tripList.push({ ...item, id: idVal, image_url: imgUrl });
+        }
+      });
+      if (tripList.length > 0) {
+        tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        allTripsData = tripList;
+        setStorage('trips', allTripsData);
+      }
+    }
+
+    if (docSnap && docSnap.exists && docSnap.exists()) {
+      const cData = docSnap.data();
       if (cData) {
-        if (Array.isArray(cData.fleet) && cData.fleet.length > 0) {
-          allFleetData = cData.fleet;
-          setStorage('fleet', allFleetData);
-        }
-        if (Array.isArray(cData.destinations) && cData.destinations.length > 0) {
-          allDestinationsData = cData.destinations;
-          setStorage('destinations', allDestinationsData);
-        }
-        if (Array.isArray(cData.trips) && cData.trips.length > 0) {
-          allTripsData = cData.trips;
-          setStorage('trips', allTripsData);
-        }
         if (Array.isArray(cData.services) && cData.services.length > 0) {
           allServicesData = cData.services;
           setStorage('services', allServicesData);
@@ -262,10 +306,22 @@ async function _doInitAdminCloudState() {
         if (cData.settings && typeof cData.settings === 'object') {
           setStorage('settings', cData.settings);
         }
+        if ((!allDestinationsData || allDestinationsData.length === 0) && Array.isArray(cData.destinations) && cData.destinations.length > 0) {
+          allDestinationsData = cData.destinations;
+          setStorage('destinations', allDestinationsData);
+        }
+        if ((!allFleetData || allFleetData.length === 0) && Array.isArray(cData.fleet) && cData.fleet.length > 0) {
+          allFleetData = cData.fleet;
+          setStorage('fleet', allFleetData);
+        }
+        if ((!allTripsData || allTripsData.length === 0) && Array.isArray(cData.trips) && cData.trips.length > 0) {
+          allTripsData = cData.trips;
+          setStorage('trips', allTripsData);
+        }
         console.log('✅ Loaded latest cloud state from Cloud Firestore.');
         return true;
       }
-    } else if (snap && !snap.exists()) {
+    } else if (docSnap && !docSnap.exists()) {
       console.log('Initializing baseline cloud state in Cloud Firestore...');
       syncStateToFirebaseCloud().catch(() => {});
     }
