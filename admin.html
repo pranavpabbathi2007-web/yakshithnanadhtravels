@@ -1160,19 +1160,39 @@
           </select>
         </div>
 
-        <!-- Vehicle Image Upload with Firebase Storage -->
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label">Vehicle Photo / Image (Stored in Firebase Cloud):</label>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <input type="file" id="veh_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
-            <div id="veh_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
-              <img id="veh_image_preview" src="" alt="Vehicle Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
-              <div style="flex:1;">
-                <div id="veh_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
-                <div style="font-size:0.72rem; color:var(--color-text-muted);">Bucket: yakshithnandhtravels.firebasestorage.app</div>
-              </div>
+        <!-- Vehicle Image Upload: File from System or Direct Web URL -->
+        <div class="form-group" style="margin-bottom:14px; background:#FDFBF7; padding:12px; border-radius:10px; border:1px solid rgba(139,38,53,0.15);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label class="form-label" style="margin-bottom:0; font-weight:700;">Vehicle Image / Photo:</label>
+            <div style="display:flex; gap:4px; background:#EFE9DF; padding:3px; border-radius:6px;">
+              <button type="button" id="veh_mode_file_btn" class="btn-mode active" onclick="switchImageInputMode('veh', 'file')" style="font-size:0.75rem; padding:4px 10px; border-radius:4px; border:none; cursor:pointer; font-weight:600; background:#8B2635; color:#fff;">📁 Upload File</button>
+              <button type="button" id="veh_mode_url_btn" class="btn-mode" onclick="switchImageInputMode('veh', 'url')" style="font-size:0.75rem; padding:4px 10px; border-radius:4px; border:none; cursor:pointer; font-weight:600; background:transparent; color:#555;">🌐 Image URL</button>
             </div>
-            <input type="text" id="veh_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+
+          <!-- File Upload Mode -->
+          <div id="veh_file_container" style="display:block; margin-bottom:6px;">
+            <input type="file" id="veh_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem; background:#fff;">
+            <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Select photo from computer (auto-compressed for fast loading).</div>
+          </div>
+
+          <!-- URL Input Mode -->
+          <div id="veh_url_container" style="display:none; margin-bottom:6px;">
+            <div style="display:flex; gap:6px;">
+              <input type="url" id="veh_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="previewImageUrl('veh')" style="white-space:nowrap; padding:6px 12px; font-size:0.78rem;">Preview</button>
+            </div>
+            <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Paste direct link from Unsplash, Google Images, or any CDN.</div>
+          </div>
+
+          <!-- Unified Live Preview Box -->
+          <div id="veh_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold); margin-top:6px;">
+            <img id="veh_image_preview" src="" alt="Vehicle Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+            <div style="flex:1;">
+              <div id="veh_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Image ready</div>
+              <div id="veh_upload_source" style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Cloud Firestore & Synced with Live Website</div>
+            </div>
+            <button type="button" onclick="clearSelectedImage('veh')" style="background:none; border:none; color:#c00; font-size:1.2rem; cursor:pointer; padding:4px;" title="Clear image">&times;</button>
           </div>
         </div>
 
@@ -1237,19 +1257,39 @@
           </select>
         </div>
 
-        <!-- Destination Photo Upload with Firebase Storage & Instant Preview -->
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label">Destination Photo / Image (Displayed on Home Screen):</label>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <input type="file" id="dest_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
-            <div id="dest_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
-              <img id="dest_image_preview" src="" alt="Destination Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
-              <div style="flex:1;">
-                <div id="dest_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
-                <div style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Firebase Cloud & Synced with Live Website</div>
-              </div>
+        <!-- Destination Image Upload: File from System or Direct Web URL -->
+        <div class="form-group" style="margin-bottom:14px; background:#FDFBF7; padding:12px; border-radius:10px; border:1px solid rgba(139,38,53,0.15);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label class="form-label" style="margin-bottom:0; font-weight:700;">Destination Photo / Image (Home Screen):</label>
+            <div style="display:flex; gap:4px; background:#EFE9DF; padding:3px; border-radius:6px;">
+              <button type="button" id="dest_mode_file_btn" class="btn-mode active" onclick="switchImageInputMode('dest', 'file')" style="font-size:0.75rem; padding:4px 10px; border-radius:4px; border:none; cursor:pointer; font-weight:600; background:#8B2635; color:#fff;">📁 Upload File</button>
+              <button type="button" id="dest_mode_url_btn" class="btn-mode" onclick="switchImageInputMode('dest', 'url')" style="font-size:0.75rem; padding:4px 10px; border-radius:4px; border:none; cursor:pointer; font-weight:600; background:transparent; color:#555;">🌐 Image URL</button>
             </div>
-            <input type="text" id="dest_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+
+          <!-- File Upload Mode -->
+          <div id="dest_file_container" style="display:block; margin-bottom:6px;">
+            <input type="file" id="dest_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem; background:#fff;">
+            <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Select photo from computer (auto-compressed for fast loading).</div>
+          </div>
+
+          <!-- URL Input Mode -->
+          <div id="dest_url_container" style="display:none; margin-bottom:6px;">
+            <div style="display:flex; gap:6px;">
+              <input type="url" id="dest_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="previewImageUrl('dest')" style="white-space:nowrap; padding:6px 12px; font-size:0.78rem;">Preview</button>
+            </div>
+            <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Paste direct link from Unsplash, Google Images, or any CDN.</div>
+          </div>
+
+          <!-- Unified Live Preview Box -->
+          <div id="dest_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold); margin-top:6px;">
+            <img id="dest_image_preview" src="" alt="Destination Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+            <div style="flex:1;">
+              <div id="dest_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Image ready</div>
+              <div id="dest_upload_source" style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Cloud Firestore & Synced with Live Website</div>
+            </div>
+            <button type="button" onclick="clearSelectedImage('dest')" style="background:none; border:none; color:#c00; font-size:1.2rem; cursor:pointer; padding:4px;" title="Clear image">&times;</button>
           </div>
         </div>
         <div class="form-grid" style="margin-bottom:12px;">
@@ -1314,19 +1354,39 @@
           </select>
         </div>
 
-        <!-- Trip Cover Photo Upload -->
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label">Package Cover Photo / Image:</label>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <input type="file" id="trip_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem;">
-            <div id="trip_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold);">
-              <img id="trip_image_preview" src="" alt="Trip Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
-              <div style="flex:1;">
-                <div id="trip_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Ready to upload</div>
-                <div style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Firebase Cloud & Displayed on Home Screen</div>
-              </div>
+        <!-- Trip Cover Photo Upload: File from System or Direct Web URL -->
+        <div class="form-group" style="margin-bottom:14px; background:#FDFBF7; padding:12px; border-radius:10px; border:1px solid rgba(139,38,53,0.15);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label class="form-label" style="margin-bottom:0; font-weight:700;">Package Cover Photo / Image:</label>
+            <div style="display:flex; gap:4px; background:#EFE9DF; padding:3px; border-radius:6px;">
+              <button type="button" id="trip_mode_file_btn" class="btn-mode active" onclick="switchImageInputMode('trip', 'file')" style="font-size:0.75rem; padding:4px 10px; border-radius:4px; border:none; cursor:pointer; font-weight:600; background:#8B2635; color:#fff;">📁 Upload File</button>
+              <button type="button" id="trip_mode_url_btn" class="btn-mode" onclick="switchImageInputMode('trip', 'url')" style="font-size:0.75rem; padding:4px 10px; border-radius:4px; border:none; cursor:pointer; font-weight:600; background:transparent; color:#555;">🌐 Image URL</button>
             </div>
-            <input type="text" id="trip_image_url" class="form-control" placeholder="Or enter image URL (https://...)" style="font-size:0.82rem; padding:8px 12px;">
+          </div>
+
+          <!-- File Upload Mode -->
+          <div id="trip_file_container" style="display:block; margin-bottom:6px;">
+            <input type="file" id="trip_image_file" accept="image/*" class="form-control" style="padding:7px 10px; font-size:0.85rem; background:#fff;">
+            <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Select photo from computer (auto-compressed for fast loading).</div>
+          </div>
+
+          <!-- URL Input Mode -->
+          <div id="trip_url_container" style="display:none; margin-bottom:6px;">
+            <div style="display:flex; gap:6px;">
+              <input type="url" id="trip_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="previewImageUrl('trip')" style="white-space:nowrap; padding:6px 12px; font-size:0.78rem;">Preview</button>
+            </div>
+            <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Paste direct link from Unsplash, Google Images, or any CDN.</div>
+          </div>
+
+          <!-- Unified Live Preview Box -->
+          <div id="trip_image_preview_box" style="display:none; align-items:center; gap:12px; background:#FFF9F0; padding:8px 12px; border-radius:8px; border:1px dashed var(--color-accent-gold); margin-top:6px;">
+            <img id="trip_image_preview" src="" alt="Trip Preview" style="width:75px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #ddd; background:#fff;">
+            <div style="flex:1;">
+              <div id="trip_upload_status" style="font-size:0.8rem; font-weight:700; color:var(--color-primary);">Image ready</div>
+              <div id="trip_upload_source" style="font-size:0.72rem; color:var(--color-text-muted);">Stored in Cloud Firestore & Synced with Live Website</div>
+            </div>
+            <button type="button" onclick="clearSelectedImage('trip')" style="background:none; border:none; color:#c00; font-size:1.2rem; cursor:pointer; padding:4px;" title="Clear image">&times;</button>
           </div>
         </div>
 

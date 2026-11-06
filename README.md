@@ -54,22 +54,24 @@ Admin Console: **http://localhost:3000/admin**
 ## 📁 Project Structure
 
 ```
-yakshith-nandh-travels/
-├── public/
-│   ├── index.html          # Main public website
-│   ├── admin.html          # Admin console
-│   ├── admin.js            # Admin JS (CRUD handlers)
-│   ├── script.js           # Public site JS (booking, sync)
-│   ├── styles.css          # Full temple-aesthetic stylesheet
-│   └── admin/              # Admin subfolder (alias route)
-├── data/
-│   └── travels.db          # SQLite database (auto-created)
-├── server.js               # Node.js HTTP + REST API server
-├── database.js             # SQLite schema + seed + CRUD helpers
-├── package.json
-└── .vscode/
-    ├── launch.json         # F5 to run server
-    └── settings.json
+yakshithnanadhtravels/
+├── index.html          # Main public website
+├── admin.html          # Admin console
+├── login.html          # Admin secure authentication login
+├── script.js           # Public site JS (booking, real-time sync)
+├── admin.js            # Admin JS (CRUD handlers, dual-mode uploader)
+├── login.js            # Secure login & session management
+├── styles.css          # Full temple-aesthetic stylesheet
+├── firebase-config.js  # Firebase client credentials & configuration
+├── firebase-sdk.js     # Firebase cloud firestore & storage integration
+├── database.js         # SQLite fallback and dual-mode data persistence
+├── server.js           # Node.js HTTP + REST API server
+├── vercel.json         # Vercel serverless deployment config
+├── api/                # Serverless API routes
+├── images/             # Static brand images & hero assets
+├── uploads/            # Dynamic uploaded images
+├── data/               # Persistent data snapshots (travels_state.json)
+└── .vscode/            # Editor debugging and settings
 ```
 
 ---

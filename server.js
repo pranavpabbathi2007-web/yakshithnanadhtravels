@@ -15,7 +15,7 @@ const url = require('node:url');
 const db = require('./database.js');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PUBLIC_DIR = __dirname;
 
 // MIME Types Map
 const MIME_TYPES = {
@@ -688,7 +688,7 @@ async function handleRequest(req, res) {
       const rawName = (body.filename || `photo_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '');
       const safeName = rawName.includes('.') ? rawName : `${rawName}${ext}`;
 
-      // 1. Save to public/uploads
+      // 1. Save to uploads/
       try {
         const uploadsDir = path.join(PUBLIC_DIR, 'uploads');
         if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -733,7 +733,7 @@ async function handleRequest(req, res) {
       return res.end();
     }
 
-    // 1. Check public/uploads
+    // 1. Check uploads/
     const diskPath = path.join(PUBLIC_DIR, 'uploads', safeFile);
     if (fs.existsSync(diskPath)) {
       res.writeHead(200, {

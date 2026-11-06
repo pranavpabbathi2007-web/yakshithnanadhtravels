@@ -622,11 +622,10 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             mergedFleet.push({ ...incoming, image_url: incImg });
           } else {
             const existingImg = mergedFleet[idx].image_url || '';
-            const keepExistingImg = existingImg.includes('firebasestorage') && !incImg.includes('firebasestorage');
             mergedFleet[idx] = {
               ...mergedFleet[idx],
               ...incoming,
-              image_url: keepExistingImg ? existingImg : (incImg || existingImg)
+              image_url: incImg || existingImg
             };
           }
         }
@@ -648,11 +647,10 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             merged.push({ ...incoming, image_url: incImg });
           } else {
             const existingImg = merged[idx].image_url || '';
-            const keepExistingImg = existingImg.includes('firebasestorage') && !incImg.includes('firebasestorage');
             merged[idx] = {
               ...merged[idx],
               ...incoming,
-              image_url: keepExistingImg ? existingImg : (incImg || existingImg)
+              image_url: incImg || existingImg
             };
           }
         }
@@ -674,11 +672,10 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             mergedTrips.push({ ...incoming, image_url: incImg });
           } else {
             const existingImg = mergedTrips[idx].image_url || '';
-            const keepExistingImg = existingImg.includes('firebasestorage') && !incImg.includes('firebasestorage');
             mergedTrips[idx] = {
               ...mergedTrips[idx],
               ...incoming,
-              image_url: keepExistingImg ? existingImg : (incImg || existingImg)
+              image_url: incImg || existingImg
             };
           }
         }

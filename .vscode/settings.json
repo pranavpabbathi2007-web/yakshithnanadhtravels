@@ -11,5 +11,5 @@
     "javascript": "javascriptreact"
   },
   "liveServer.settings.port": 3000,
-  "liveServer.settings.root": "/public"
+  "liveServer.settings.root": "/"
 }

@@ -855,6 +855,106 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
+  // DUAL-MODE IMAGE MANAGEMENT: FILE UPLOAD & DIRECT WEB URL (UNSPLASH / CDN)
+  // ==========================================================================
+
+  const activeImageModes = { veh: 'file', dest: 'file', trip: 'file' };
+
+  window.switchImageInputMode = function(prefix, mode) {
+    activeImageModes[prefix] = mode;
+    const fileContainer = document.getElementById(`${prefix}_file_container`);
+    const urlContainer = document.getElementById(`${prefix}_url_container`);
+    const fileBtn = document.getElementById(`${prefix}_mode_file_btn`);
+    const urlBtn = document.getElementById(`${prefix}_mode_url_btn`);
+
+    if (mode === 'file') {
+      if (fileContainer) fileContainer.style.display = 'block';
+      if (urlContainer) urlContainer.style.display = 'none';
+      if (fileBtn) {
+        fileBtn.style.background = '#8B2635';
+        fileBtn.style.color = '#fff';
+      }
+      if (urlBtn) {
+        urlBtn.style.background = 'transparent';
+        urlBtn.style.color = '#555';
+      }
+    } else {
+      if (fileContainer) fileContainer.style.display = 'none';
+      if (urlContainer) urlContainer.style.display = 'block';
+      if (urlBtn) {
+        urlBtn.style.background = '#8B2635';
+        urlBtn.style.color = '#fff';
+      }
+      if (fileBtn) {
+        fileBtn.style.background = 'transparent';
+        fileBtn.style.color = '#555';
+      }
+      const urlInput = document.getElementById(`${prefix}_image_url`);
+      if (urlInput) {
+        urlInput.focus();
+        if (urlInput.value.trim()) {
+          window.previewImageUrl(prefix);
+        }
+      }
+    }
+  };
+
+  window.previewImageUrl = function(prefix) {
+    const urlInput = document.getElementById(`${prefix}_image_url`);
+    const previewBox = document.getElementById(`${prefix}_image_preview_box`);
+    const previewImg = document.getElementById(`${prefix}_image_preview`);
+    const statusText = document.getElementById(`${prefix}_upload_status`);
+    const sourceText = document.getElementById(`${prefix}_upload_source`);
+    const fileInput = document.getElementById(`${prefix}_image_file`);
+
+    if (!urlInput) return;
+    const rawUrl = urlInput.value.trim();
+
+    if (!rawUrl) {
+      if (previewBox) previewBox.style.display = 'none';
+      return;
+    }
+
+    if (fileInput) fileInput.value = ''; // URL takes precedence
+    if (previewBox) previewBox.style.display = 'flex';
+    if (statusText) statusText.innerHTML = '⚡ Checking image link...';
+
+    const testImg = new Image();
+    testImg.onload = () => {
+      if (previewImg) previewImg.src = rawUrl;
+      if (statusText) statusText.innerHTML = '✅ Valid Image URL loaded';
+      if (sourceText) sourceText.innerHTML = 'External Web URL (Unsplash / CDN)';
+    };
+    testImg.onerror = () => {
+      if (previewImg) previewImg.src = rawUrl;
+      if (statusText) statusText.innerHTML = '⚠️ Image URL ready to save';
+      if (sourceText) sourceText.innerHTML = 'Will be verified and rendered directly';
+    };
+    testImg.src = rawUrl;
+  };
+
+  window.clearSelectedImage = function(prefix) {
+    const fileInput = document.getElementById(`${prefix}_image_file`);
+    const urlInput = document.getElementById(`${prefix}_image_url`);
+    const previewBox = document.getElementById(`${prefix}_image_preview_box`);
+    const previewImg = document.getElementById(`${prefix}_image_preview`);
+
+    if (fileInput) fileInput.value = '';
+    if (urlInput) urlInput.value = '';
+    if (previewImg) previewImg.src = '';
+    if (previewBox) previewBox.style.display = 'none';
+  };
+
+  // Wire up instant typing and paste listeners for all URL input boxes
+  ['veh', 'dest', 'trip'].forEach(prefix => {
+    const urlInput = document.getElementById(`${prefix}_image_url`);
+    if (urlInput) {
+      urlInput.addEventListener('input', () => window.previewImageUrl(prefix));
+      urlInput.addEventListener('paste', () => setTimeout(() => window.previewImageUrl(prefix), 40));
+    }
+  });
+
+  // ==========================================================================
   // VEHICLE IMAGE UPLOAD & VEHICLE FORM HANDLER
   // ==========================================================================
 
@@ -866,21 +966,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const previewBox = document.getElementById('veh_image_preview_box');
       const previewImg = document.getElementById('veh_image_preview');
       const statusText = document.getElementById('veh_upload_status');
+      const sourceText = document.getElementById('veh_upload_source');
       const urlInput = document.getElementById('veh_image_url');
 
       if (previewBox) previewBox.style.display = 'flex';
-      if (statusText) statusText.innerHTML = '⚡ Processing and uploading photo...';
+      if (statusText) statusText.innerHTML = '⚡ Processing photo...';
 
       try {
         const uploaded = await uploadImageToFirebaseStorage(file, 'vehicles');
         if (uploaded && uploaded.url) {
           if (previewImg) previewImg.src = uploaded.url;
           if (urlInput) urlInput.value = uploaded.url;
-          if (statusText) {
-            statusText.innerHTML = uploaded.source === 'firebase_storage'
-              ? '✅ Uploaded to Firebase Storage'
-              : '✅ Photo optimized & ready to save';
-          }
+          if (statusText) statusText.innerHTML = '✅ Photo optimized & ready to save';
+          if (sourceText) sourceText.innerHTML = 'Saved directly to Cloud Firestore collection';
         }
       } catch (uploadErr) {
         console.warn('Vehicle photo upload warning:', uploadErr.message);
@@ -899,11 +997,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving Vehicle...';
       }
 
+      const activeMode = activeImageModes['veh'] || 'file';
       const pickedFile = vehicleImageFile && vehicleImageFile.files && vehicleImageFile.files[0];
       let imageUrl = document.getElementById('veh_image_url').value.trim();
 
-      // If a new file is chosen, always upload it
-      if (pickedFile) {
+      // If in file mode and file chosen, upload it
+      if (activeMode === 'file' && pickedFile) {
         if (saveBtn) saveBtn.textContent = 'Uploading Vehicle Image...';
         try {
           const uploaded = await uploadImageToFirebaseStorage(pickedFile, 'vehicles');
@@ -1039,11 +1138,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving Destination...';
       }
 
-      const destFile = destinationImageFile && destinationImageFile.files && destinationImageFile.files[0];
+      const activeMode = (typeof activeImageModes !== 'undefined' && activeImageModes['dest']) || 'file';
+      const destFile = (activeMode === 'file') ? (destinationImageFile && destinationImageFile.files && destinationImageFile.files[0]) : null;
       let imageUrl = document.getElementById('dest_image_url').value.trim();
 
-      // If a new file is chosen, always upload it
-      if (destFile) {
+      // If a new file is chosen in file mode, upload it
+      if (activeMode === 'file' && destFile) {
         if (saveBtn) saveBtn.textContent = 'Uploading Destination Image...';
         try {
           const uploaded = await uploadImageToFirebaseStorage(destFile, 'destinations');
@@ -1169,11 +1269,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving Package...';
       }
 
-      const pickedFile = tripImageFile && tripImageFile.files && tripImageFile.files[0];
+      const activeMode = (typeof activeImageModes !== 'undefined' && activeImageModes['trip']) || 'file';
+      const pickedFile = (activeMode === 'file') ? (tripImageFile && tripImageFile.files && tripImageFile.files[0]) : null;
       let imageUrl = document.getElementById('trip_image_url').value.trim();
 
-      // If a new file is chosen, always upload it
-      if (pickedFile) {
+      // If a new file is chosen in file mode, upload it
+      if (activeMode === 'file' && pickedFile) {
         if (saveBtn) saveBtn.textContent = 'Uploading Trip Package Image...';
         try {
           const uploaded = await uploadImageToFirebaseStorage(pickedFile, 'trips');
@@ -2001,6 +2102,7 @@ window.openAddVehicleModal = () => {
   if (previewBox) previewBox.style.display = 'none';
   const urlInput = document.getElementById('veh_image_url');
   if (urlInput) urlInput.value = '';
+  if (window.switchImageInputMode) window.switchImageInputMode('veh', 'file');
   document.getElementById('vehicleModal').classList.add('open');
 };
 
@@ -2028,18 +2130,25 @@ window.openEditVehicleModal = (id) => {
   const statusEl = document.getElementById('veh_status');
   if (statusEl) statusEl.value = (veh.is_published !== 0 && veh.is_available !== 0) ? '1' : '0';
 
+  const curImg = veh.image_url || '';
   const urlInput = document.getElementById('veh_image_url');
   const previewBox = document.getElementById('veh_image_preview_box');
   const previewImg = document.getElementById('veh_image_preview');
   const statusText = document.getElementById('veh_upload_status');
 
-  if (urlInput) urlInput.value = veh.image_url || '';
-  if (veh.image_url) {
+  if (urlInput) urlInput.value = curImg;
+  if (curImg) {
     if (previewBox) previewBox.style.display = 'flex';
-    if (previewImg) previewImg.src = veh.image_url;
-    if (statusText) statusText.textContent = veh.image_url.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Vehicle Photo';
+    if (previewImg) previewImg.src = curImg;
+    if (statusText) statusText.textContent = curImg.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Vehicle Photo';
   } else {
     if (previewBox) previewBox.style.display = 'none';
+  }
+
+  if (curImg && (curImg.startsWith('http://') || curImg.startsWith('https://')) && !curImg.includes('firebasestorage')) {
+    if (window.switchImageInputMode) window.switchImageInputMode('veh', 'url');
+  } else {
+    if (window.switchImageInputMode) window.switchImageInputMode('veh', 'file');
   }
 
   document.getElementById('vehicleModal').classList.add('open');
@@ -2054,6 +2163,7 @@ window.openAddDestinationModal = () => {
   if (previewBox) previewBox.style.display = 'none';
   const urlInput = document.getElementById('dest_image_url');
   if (urlInput) urlInput.value = '';
+  if (window.switchImageInputMode) window.switchImageInputMode('dest', 'file');
   document.getElementById('destinationModal').classList.add('open');
 };
 
@@ -2090,6 +2200,12 @@ window.openEditDestinationModal = (id) => {
     if (previewBox) previewBox.style.display = 'none';
   }
 
+  if (curImg && (curImg.startsWith('http://') || curImg.startsWith('https://')) && !curImg.includes('firebasestorage')) {
+    if (window.switchImageInputMode) window.switchImageInputMode('dest', 'url');
+  } else {
+    if (window.switchImageInputMode) window.switchImageInputMode('dest', 'file');
+  }
+
   document.getElementById('destinationModal').classList.add('open');
 };
 window.closeDestinationModal = () => document.getElementById('destinationModal').classList.remove('open');
@@ -2103,6 +2219,7 @@ window.openAddTripModal = () => {
   const urlInput = document.getElementById('trip_image_url');
   if (urlInput) urlInput.value = '';
   document.getElementById('trip_inclusions').value = 'Tolls Included, Parkings Included, Driver Wage Included, Border Tax Included, 24*7 Support, Best Price Guaranteed, AC Vehicle, Fuel, Doorstep Pickup & Drop';
+  if (window.switchImageInputMode) window.switchImageInputMode('trip', 'file');
   document.getElementById('tripModal').classList.add('open');
 };
 
@@ -2123,18 +2240,25 @@ window.openEditTripModal = (id) => {
   const statusEl = document.getElementById('trip_status');
   if (statusEl) statusEl.value = (trip.is_published !== 0 && trip.is_popular !== 0 && trip.is_active !== 0) ? '1' : '0';
 
+  const curImg = trip.image_url || '';
   const urlInput = document.getElementById('trip_image_url');
   const previewBox = document.getElementById('trip_image_preview_box');
   const previewImg = document.getElementById('trip_image_preview');
   const statusText = document.getElementById('trip_upload_status');
 
-  if (urlInput) urlInput.value = trip.image_url || '';
-  if (trip.image_url) {
+  if (urlInput) urlInput.value = curImg;
+  if (curImg) {
     if (previewBox) previewBox.style.display = 'flex';
-    if (previewImg) previewImg.src = trip.image_url;
-    if (statusText) statusText.textContent = trip.image_url.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Package Photo';
+    if (previewImg) previewImg.src = curImg;
+    if (statusText) statusText.textContent = curImg.includes('firebasestorage') ? 'Stored in Firebase Cloud' : 'Current Package Photo';
   } else {
     if (previewBox) previewBox.style.display = 'none';
+  }
+
+  if (curImg && (curImg.startsWith('http://') || curImg.startsWith('https://')) && !curImg.includes('firebasestorage')) {
+    if (window.switchImageInputMode) window.switchImageInputMode('trip', 'url');
+  } else {
+    if (window.switchImageInputMode) window.switchImageInputMode('trip', 'file');
   }
 
   document.getElementById('tripModal').classList.add('open');
