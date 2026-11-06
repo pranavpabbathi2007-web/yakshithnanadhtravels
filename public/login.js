@@ -3,7 +3,7 @@
  * Authenticates directly with Firebase Authentication (Project: yakshithnandhtravels)
  */
 
-import { auth } from './firebase-config.js?v=1794010000000';
+import { auth } from './firebase-config.js?v=1794020000000';
 import {
   signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";

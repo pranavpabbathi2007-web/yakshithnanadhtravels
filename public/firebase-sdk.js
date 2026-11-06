@@ -87,7 +87,9 @@ async function saveVehicleToFirestore(vehicle) {
   if (!vehicle || !vehicle.id) return null;
   try {
     const docRef = doc(db, 'fleet', String(vehicle.id));
-    await setDoc(docRef, sanitizeForFirestore({ ...vehicle, updated_at: new Date().toISOString() }), { merge: true });
+    const vehPayload = { ...vehicle, updated_at: new Date().toISOString() };
+    if (!vehPayload.image_url) delete vehPayload.image_url;
+    await setDoc(docRef, sanitizeForFirestore(vehPayload), { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore vehicle write note:', err.message);
@@ -114,7 +116,10 @@ async function saveDestinationToFirestore(destination) {
   if (!destination || !destination.id) return null;
   try {
     const docRef = doc(db, 'destinations', String(destination.id));
-    await setDoc(docRef, sanitizeForFirestore({ ...destination, updated_at: new Date().toISOString() }), { merge: true });
+    const destPayload = { ...destination, updated_at: new Date().toISOString() };
+    // CRITICAL PROTECTION: Never overwrite a saved destination image with an empty string
+    if (!destPayload.image_url) delete destPayload.image_url;
+    await setDoc(docRef, sanitizeForFirestore(destPayload), { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore destination write note:', err.message);
@@ -141,7 +146,9 @@ async function saveTripToFirestore(trip) {
   if (!trip || !trip.id) return null;
   try {
     const docRef = doc(db, 'trips', String(trip.id));
-    await setDoc(docRef, sanitizeForFirestore({ ...trip, updated_at: new Date().toISOString() }), { merge: true });
+    const tripPayload = { ...trip, updated_at: new Date().toISOString() };
+    if (!tripPayload.image_url) delete tripPayload.image_url;
+    await setDoc(docRef, sanitizeForFirestore(tripPayload), { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore trip write note:', err.message);

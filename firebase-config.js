@@ -4,4 +4,4 @@
  * Configured for Authentication, Cloud Firestore, Firebase Storage & Performance Monitoring
  */
 
-export * from './firebase-sdk.js?v=1794010000000';
+export * from './firebase-sdk.js?v=1794020000000';

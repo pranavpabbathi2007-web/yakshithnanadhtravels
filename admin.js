@@ -28,7 +28,7 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1794010000000';
+} from './firebase-sdk.js?v=1794020000000';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -1251,7 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const activeMode = (typeof activeImageModes !== 'undefined' && activeImageModes['dest']) || 'file';
       const destFile = (activeMode === 'file') ? (destinationImageFile && destinationImageFile.files && destinationImageFile.files[0]) : null;
-      let imageUrl = document.getElementById('dest_image_url').value.trim();
+      let imageUrl = (document.getElementById('dest_image_url')?.value || '').trim();
 
       // If a new file is chosen in file mode, upload it
       if (activeMode === 'file' && destFile) {
@@ -1261,7 +1261,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const uploaded = await uploadImageToFirebaseStorage(destFile, 'destinations');
           if (uploaded && uploaded.url) {
             imageUrl = uploaded.url;
-            document.getElementById('dest_image_url').value = imageUrl;
+            const destUrlEl = document.getElementById('dest_image_url');
+            if (destUrlEl) destUrlEl.value = imageUrl;
             console.log(`📍 [Destination Save] Image upload success! Source: ${uploaded.source}, URL: ${imageUrl.startsWith('data:') ? 'Base64 data URL (' + imageUrl.length + ' chars)' : imageUrl}`);
           }
         } catch (err) {
@@ -1269,12 +1270,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // If no new file and no input URL, preserve existing destination image URL
+      // Check live preview element if imageUrl is still empty
+      if (!imageUrl) {
+        const previewImg = document.getElementById('dest_image_preview');
+        if (previewImg && previewImg.src && !previewImg.src.endsWith('/admin') && !previewImg.src.includes('placeholder')) {
+          imageUrl = previewImg.src;
+        }
+      }
+
+      // If no new file and no input URL, preserve existing destination image URL by ID
       if (!imageUrl && id) {
         const existing = allDestinationsData.find(d => String(d.id) === String(id));
         if (existing && existing.image_url) {
           imageUrl = existing.image_url;
           console.log(`📍 [Destination Save] Preserving existing destination image URL: ${imageUrl.startsWith('data:') ? 'Base64 data URL' : imageUrl}`);
+        }
+      }
+
+      // If still empty, check by destination name
+      if (!imageUrl) {
+        const destNameInput = (document.getElementById('dest_name')?.value || '').trim().toLowerCase();
+        if (destNameInput) {
+          const existingByName = allDestinationsData.find(d => (d.name || '').trim().toLowerCase() === destNameInput);
+          if (existingByName && existingByName.image_url) {
+            imageUrl = existingByName.image_url;
+            console.log(`📍 [Destination Save] Preserved image URL by matching destination name "${destNameInput}"`);
+          }
         }
       }
 

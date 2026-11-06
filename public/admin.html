@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="/styles.css?v=1794010000000">
+  <link rel="stylesheet" href="/styles.css?v=1794020000000">
   
   <style>
     .admin-body {
@@ -1142,7 +1142,7 @@
         <h3 id="vehicleModalTitle">Vehicle Details</h3>
         <button type="button" class="modal-close-btn" onclick="closeVehicleModal()">&times;</button>
       </div>
-      <form id="vehicleForm">
+      <form id="vehicleForm" novalidate>
         <input type="hidden" id="vehicleId">
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label">Vehicle Model Name:</label>
@@ -1179,7 +1179,7 @@
           <!-- URL Input Mode -->
           <div id="veh_url_container" style="display:none; margin-bottom:6px;">
             <div style="display:flex; gap:6px;">
-              <input type="url" id="veh_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
+              <input type="text" id="veh_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="previewImageUrl('veh')" style="white-space:nowrap; padding:6px 12px; font-size:0.78rem;">Preview</button>
             </div>
             <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Paste direct link from Unsplash, Google Images, or any CDN.</div>
@@ -1239,7 +1239,7 @@
         <h3 id="destModalTitle">Destination Details</h3>
         <button type="button" class="modal-close-btn" onclick="closeDestinationModal()">&times;</button>
       </div>
-      <form id="destinationForm">
+      <form id="destinationForm" novalidate>
         <input type="hidden" id="destId">
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label">Destination Name:</label>
@@ -1276,7 +1276,7 @@
           <!-- URL Input Mode -->
           <div id="dest_url_container" style="display:none; margin-bottom:6px;">
             <div style="display:flex; gap:6px;">
-              <input type="url" id="dest_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
+              <input type="text" id="dest_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="previewImageUrl('dest')" style="white-space:nowrap; padding:6px 12px; font-size:0.78rem;">Preview</button>
             </div>
             <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Paste direct link from Unsplash, Google Images, or any CDN.</div>
@@ -1321,7 +1321,7 @@
         <h3 id="tripModalTitle">Trip & Tour Package Details</h3>
         <button type="button" class="modal-close-btn" onclick="closeTripModal()">&times;</button>
       </div>
-      <form id="tripForm">
+      <form id="tripForm" novalidate>
         <input type="hidden" id="tripId">
 
         <div class="form-grid" style="margin-bottom:12px;">
@@ -1373,7 +1373,7 @@
           <!-- URL Input Mode -->
           <div id="trip_url_container" style="display:none; margin-bottom:6px;">
             <div style="display:flex; gap:6px;">
-              <input type="url" id="trip_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
+              <input type="text" id="trip_image_url" class="form-control" placeholder="Paste direct image URL e.g. https://images.unsplash.com/... or https://..." style="font-size:0.85rem; padding:8px 12px; background:#fff;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="previewImageUrl('trip')" style="white-space:nowrap; padding:6px 12px; font-size:0.78rem;">Preview</button>
             </div>
             <div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:3px;">Paste direct link from Unsplash, Google Images, or any CDN.</div>
@@ -1486,6 +1486,6 @@
     &copy; 2026 Yakshith Nandh Travels • Tirupati Master Dispatch Console • Helplines: +91 88868 30755 / +91 97009 35888
   </footer>
 
-  <script type="module" src="/admin.js?v=1794010000000"></script>
+  <script type="module" src="/admin.js?v=1794020000000"></script>
 </body>
 </html>
