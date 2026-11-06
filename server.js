@@ -15,7 +15,7 @@ const url = require('node:url');
 const db = require('./database.js');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = __dirname;
+const PUBLIC_DIR = fs.existsSync(path.join(__dirname, 'public')) ? path.join(__dirname, 'public') : __dirname;
 
 // MIME Types Map
 const MIME_TYPES = {
