@@ -28,7 +28,7 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1794000000000';
+} from './firebase-sdk.js?v=1794010000000';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -153,10 +153,31 @@ async function _doInitAdminCloudState() {
             }
           });
           if (destList.length > 0) {
-            destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-            allDestinationsData = destList;
+            // Deduplicate and merge with current in-memory images to never wipe valid photo
+            const currentDest = allDestinationsData || [];
+            const merged = destList.map(incoming => {
+              const existing = currentDest.find(e => String(e.id) === String(incoming.id));
+              const chosenImg = incoming.image_url || (existing ? existing.image_url : '') || '';
+              return { ...incoming, image_url: chosenImg };
+            });
+
+            // Clean deduplication by destination name
+            const seen = new Map();
+            for (const item of merged) {
+              const norm = (item.name || '').trim().toLowerCase();
+              if (!seen.has(norm)) {
+                seen.set(norm, item);
+              } else {
+                const prev = seen.get(norm);
+                if (!prev.image_url && item.image_url) {
+                  prev.image_url = item.image_url;
+                }
+              }
+            }
+            allDestinationsData = Array.from(seen.values());
+            allDestinationsData.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
             setStorage('destinations', allDestinationsData);
-            console.log('📍 [Real-time Destinations] Live collection updated from Firestore. Count:', destList.length);
+            console.log('📍 [Real-time Destinations] Live collection updated from Firestore. Count:', allDestinationsData.length);
             loadDestinations(false).catch(() => {});
           }
         }
@@ -211,12 +232,23 @@ async function _doInitAdminCloudState() {
   // 3. Load initial documents directly from Firestore collections (guarantees latest images on refresh)
   try {
     console.log('🔄 [Admin Hydration] Querying Firestore collections directly...');
-    const [destSnap, fleetSnap, tripSnap, docSnap] = await Promise.all([
+    const [destSnap, fleetSnap, tripSnap, docSnap, adminImgSnap] = await Promise.all([
       getDocs(collection(db, 'destinations')).catch(err => { console.warn('destSnap warn:', err.message); return null; }),
       getDocs(collection(db, 'fleet')).catch(err => { console.warn('fleetSnap warn:', err.message); return null; }),
       getDocs(collection(db, 'trips')).catch(err => { console.warn('tripSnap warn:', err.message); return null; }),
-      getDoc(docRef).catch(err => { console.warn('docSnap warn:', err.message); return null; })
+      getDoc(docRef).catch(err => { console.warn('docSnap warn:', err.message); return null; }),
+      getDocs(collection(db, 'admin_images')).catch(err => { console.warn('adminImgSnap warn:', err.message); return null; })
     ]);
+
+    const adminImageMap = {};
+    if (adminImgSnap && !adminImgSnap.empty) {
+      adminImgSnap.forEach(aiDoc => {
+        const aiData = aiDoc.data();
+        if (aiData && aiData.image_url) {
+          adminImageMap[aiDoc.id] = aiData.image_url;
+        }
+      });
+    }
 
     if (destSnap && !destSnap.empty) {
       const destList = [];
@@ -224,17 +256,44 @@ async function _doInitAdminCloudState() {
         const item = d.data();
         if (item) {
           const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
-          const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+          let imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+          if (!imgUrl) {
+            const cleanKey = String(item.name || idVal).replace(/[^a-zA-Z0-9_-]/g, '_');
+            imgUrl = adminImageMap[`destination_${cleanKey}`] ||
+                     adminImageMap[`dest_${cleanKey}`] ||
+                     adminImageMap[cleanKey] || '';
+          }
           destList.push({ ...item, id: idVal, image_url: imgUrl });
         }
       });
       if (destList.length > 0) {
-        destList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-        allDestinationsData = destList;
+        // Merge with existing in-memory images to never lose an image
+        const currentDest = allDestinationsData || [];
+        const merged = destList.map(incoming => {
+          const existing = currentDest.find(e => String(e.id) === String(incoming.id));
+          const chosenImg = incoming.image_url || (existing ? existing.image_url : '') || '';
+          return { ...incoming, image_url: chosenImg };
+        });
+
+        // Clean deduplication by destination name
+        const seen = new Map();
+        for (const item of merged) {
+          const norm = (item.name || '').trim().toLowerCase();
+          if (!seen.has(norm)) {
+            seen.set(norm, item);
+          } else {
+            const prev = seen.get(norm);
+            if (!prev.image_url && item.image_url) {
+              prev.image_url = item.image_url;
+            }
+          }
+        }
+        allDestinationsData = Array.from(seen.values());
+        allDestinationsData.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
         setStorage('destinations', allDestinationsData);
-        console.log('📍 [Admin Hydration] Loaded destinations from Firestore collection:', destList.map(d => ({ id: d.id, name: d.name, has_image: !!d.image_url })));
+        console.log('📍 [Admin Hydration] Loaded destinations from Firestore collection:', allDestinationsData.map(d => ({ id: d.id, name: d.name, has_image: !!d.image_url })));
       }
-    } else {
+    } else if (destSnap && destSnap.empty) {
       console.log('📍 [Admin Hydration] No destinations in Firestore collection yet. Seeding default destinations...');
       for (const d of SEED_DATA.destinations) {
         saveDestinationToFirestore(d).catch(() => {});
@@ -1865,7 +1924,14 @@ async function loadDestinations(forceFetch = false) {
   const container = document.getElementById('destinationsCardsContainer');
   if (!container) return;
 
-  // Prioritize existing memory or localStorage before falling back to API
+  // 1. If memory has not been hydrated from Firestore yet, ensure cloud init has completed
+  if (!allDestinationsData || allDestinationsData.length === 0) {
+    try {
+      await initAdminCloudState();
+    } catch (e) {}
+  }
+
+  // 2. Prioritize existing memory or localStorage before falling back to API
   if (!allDestinationsData || allDestinationsData.length === 0) {
     allDestinationsData = getStorage('destinations', null);
   }
@@ -1883,21 +1949,29 @@ async function loadDestinations(forceFetch = false) {
     } catch (err) {}
   }
 
-  if (!allDestinationsData || allDestinationsData.length === 0) {
-    allDestinationsData = getStorage('destinations', SEED_DATA.destinations);
-  }
+  // Fallback placeholder SVG (shown ONLY when a destination genuinely has no valid image URL)
+  const placeholderImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Photo Uploaded</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="sans-serif" font-size="14">Click Edit Destination to add image</text></svg>`;
 
-  const defaultDestPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
-
-  container.innerHTML = allDestinationsData.map(d => {
-    const displayImg = d.image_url || d.imageUrl || d.image || d.photo || defaultDestPhoto;
-    const isFirebase = displayImg && displayImg.includes('firebasestorage');
+  container.innerHTML = (allDestinationsData || []).map(d => {
+    // 1. Exact same image field resolution as the working public website
+    const rawImg = d.image_url || d.imageUrl || d.image || d.photo || '';
+    const hasValidImg = Boolean(rawImg && typeof rawImg === 'string' && rawImg.trim().length > 5);
+    const displayImg = hasValidImg ? rawImg.trim() : placeholderImg;
     const isPub = (d.is_published !== 0 && d.is_popular !== 0);
+
+    // Development logging as requested in Step 4
+    console.log('📍 [Admin Destination Card Render]', {
+      docId: d.id,
+      name: d.name,
+      imageUrl: hasValidImg ? (rawImg.startsWith('data:') ? `[Data URL: ${rawImg.slice(0, 30)}... (${rawImg.length} chars)]` : rawImg) : '(empty)',
+      isValid: hasValidImg,
+      receivedByImg: true
+    });
 
     return `
       <div class="admin-content-card">
         <div style="width:100%; height:150px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(d.name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultDestPhoto}'">
+          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(d.name)}" style="width:100%; height:100%; object-fit:cover;" onerror="console.warn('⚠️ [Admin Destination] Image failed to load for:', '${escapeHTML(d.name)}', this.src ? this.src.slice(0, 50) : ''); this.onerror=null; this.src='${placeholderImg}';">
           <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.9); color:#FFF9F0;">Destination #${d.id}</span>
           <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" style="position:absolute; top:8px; right:8px;" onclick="toggleDestinationPublish(${d.id})" title="Click to toggle publish status">
             ${isPub ? '🟢 Published' : '🟡 Draft'}

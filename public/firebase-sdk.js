@@ -448,8 +448,10 @@ async function syncAllToFirestore(snapshot) {
   if (Array.isArray(snapshot.fleet)) {
     for (const v of snapshot.fleet) {
       if (v && v.id) {
+        const vehPayload = { ...v };
+        if (!vehPayload.image_url) delete vehPayload.image_url;
         promises.push(
-          setDoc(doc(db, 'fleet', String(v.id)), sanitizeForFirestore(v), { merge: true })
+          setDoc(doc(db, 'fleet', String(v.id)), sanitizeForFirestore(vehPayload), { merge: true })
             .catch(e => console.warn('Fleet vehicle write note:', e.message))
         );
         if (v.image_url) {
@@ -471,8 +473,11 @@ async function syncAllToFirestore(snapshot) {
   if (Array.isArray(snapshot.destinations)) {
     for (const d of snapshot.destinations) {
       if (d && d.id) {
+        const destPayload = { ...d };
+        // CRITICAL PROTECTION: Never overwrite a saved destination image with empty string
+        if (!destPayload.image_url) delete destPayload.image_url;
         promises.push(
-          setDoc(doc(db, 'destinations', String(d.id)), sanitizeForFirestore(d), { merge: true })
+          setDoc(doc(db, 'destinations', String(d.id)), sanitizeForFirestore(destPayload), { merge: true })
             .catch(e => console.warn('Destination write note:', e.message))
         );
         if (d.image_url) {
@@ -494,8 +499,10 @@ async function syncAllToFirestore(snapshot) {
   if (Array.isArray(snapshot.trips)) {
     for (const t of snapshot.trips) {
       if (t && t.id) {
+        const tripPayload = { ...t };
+        if (!tripPayload.image_url) delete tripPayload.image_url;
         promises.push(
-          setDoc(doc(db, 'trips', String(t.id)), sanitizeForFirestore(t), { merge: true })
+          setDoc(doc(db, 'trips', String(t.id)), sanitizeForFirestore(tripPayload), { merge: true })
             .catch(e => console.warn('Trip write note:', e.message))
         );
         if (t.image_url) {
