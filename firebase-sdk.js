@@ -229,7 +229,7 @@ function sanitizeForFirestore(obj) {
  * Resizes large camera photos to max 900px and outputs optimized JPEG
  * Returns { blob, dataUrl, width, height }
  */
-function compressImageFile(file, maxDimension = 900, quality = 0.8) {
+function compressImageFile(file, maxDimension = 720, quality = 0.70) {
   return new Promise((resolve, reject) => {
     if (!file) return reject(new Error('No file provided for compression.'));
     if (!file.type || !file.type.startsWith('image/')) {
@@ -293,10 +293,10 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
   const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   const storagePath = `${folder}/${uniqueId}_${cleanName}`;
 
-  // 2. Client-side compression for high performance and fallback capability
+  // 2. Client-side compression for high performance and fallback capability (~35KB)
   let compressed = null;
   try {
-    compressed = await compressImageFile(file, 900, 0.82);
+    compressed = await compressImageFile(file, 720, 0.70);
   } catch (compErr) {
     console.warn('Image pre-compression note:', compErr.message);
   }
@@ -317,10 +317,10 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
         }
       };
 
-      // 10-second timeout safeguard to catch network/CORS issues cleanly
+      // 4-second timeout safeguard for CORS preflight / network
       const uploadPromise = uploadBytes(storageRef, uploadPayload, metadata);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase Storage upload timeout')), 10000)
+        setTimeout(() => reject(new Error('Firebase Storage upload timeout')), 4000)
       );
 
       const snapshot = await Promise.race([uploadPromise, timeoutPromise]);
@@ -337,7 +337,7 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
       }
     }
   } catch (storageErr) {
-    console.warn(`Firebase Storage upload note for [${storagePath}]:`, storageErr.message);
+    console.debug(`Firebase Storage upload note for [${storagePath}] (using cloud fallback):`, storageErr.message);
   }
 
   // 4. Serverless API upload sync fallback
@@ -393,9 +393,32 @@ async function syncAllToFirestore(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
   const promises = [];
 
-  // 1. Unified snapshot for instant public website 1-read hydration
+  // 1. Unified snapshot for instant public website 1-read hydration (Guarded against Firestore 1MB document limit)
+  let siteContentDoc = sanitizeForFirestore(snapshot);
+  try {
+    const rawLen = JSON.stringify(siteContentDoc).length;
+    if (rawLen > 750000) {
+      // Strip oversized base64 strings from monolithic snapshot to guarantee it stays well under 1MB
+      // Individual collections (fleet/{id}, destinations/{id}, trips/{id}) store each document independently
+      const safeDoc = JSON.parse(JSON.stringify(siteContentDoc));
+      const trimList = (list) => {
+        if (!Array.isArray(list)) return list;
+        return list.map(item => {
+          if (item && item.image_url && item.image_url.startsWith('data:') && item.image_url.length > 25000) {
+            return { ...item, image_url: '' };
+          }
+          return item;
+        });
+      };
+      safeDoc.fleet = trimList(safeDoc.fleet);
+      safeDoc.destinations = trimList(safeDoc.destinations);
+      safeDoc.trips = trimList(safeDoc.trips);
+      siteContentDoc = safeDoc;
+    }
+  } catch (e) {}
+
   promises.push(
-    setDoc(doc(db, 'site_content', 'data'), sanitizeForFirestore(snapshot), { merge: true })
+    setDoc(doc(db, 'site_content', 'data'), siteContentDoc, { merge: true })
       .catch(e => console.warn('Snapshot write note:', e.message))
   );
 
