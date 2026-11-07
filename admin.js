@@ -1997,7 +1997,7 @@ async function loadFleet(forceFetch = false) {
           <div><strong>Airbags:</strong> ${escapeHTML(String(airbagsDisplay))}</div>
           <div><strong>Rate (km):</strong> ${escapeHTML(v.rate_per_km || '₹18/km')}</div>
           <div><strong>Daily Rent:</strong> <span style="color:var(--color-primary); font-weight:700;">${escapeHTML(v.daily_rent || '₹3,500/day')}</span></div>
-          <div style="grid-column:span 2;"><strong>Mileage:</strong> ${escapeHTML(v.mileage || '14-16 km/l')}</div>
+          <div style="grid-column:span 2;"><strong>Diesel Expenses:</strong> ${escapeHTML(v.mileage || '14-16 km/l')}</div>
           ${isFirebase ? `
             <div style="grid-column:span 2; font-size:0.72rem; color:#D86300; font-weight:600; display:flex; align-items:center; gap:4px;">
               <span>🔥 Stored in Firebase Cloud</span>

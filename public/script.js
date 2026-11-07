@@ -833,14 +833,26 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
           const imgUrl = v.image_url || defaultImg;
           return `
             <div class="vehicle-card reveal-fade-up is-revealed stagger-${(idx % 3) + 1}">
+              <div class="vehicle-custom-banner">
+                <svg style="width:13px;height:13px;fill:currentColor" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4h7.6l-6.1 4.5 2.3 7.1-6.2-4.5-6.2 4.5 2.3-7.1-6.1-4.5h7.6z"/></svg>
+                <span>Customized Services Available</span>
+              </div>
               <div class="vehicle-image-wrapper">
                 <img src="${imgUrl}" alt="${escapeHTML(v.model_name)} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.onerror=null; this.src='${defaultImg}';">
                 <div class="vehicle-badge-overlay">${escapeHTML(v.category || 'Special Fleet')}</div>
-                <div class="vehicle-specs-overlay">${escapeHTML(v.capacity || '4 Seater')} • ${escapeHTML(v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags'))}</div>
+                <div class="vehicle-specs-overlay">
+                  <div>${escapeHTML(v.capacity || '4 Seater')} • ${escapeHTML(v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags'))}</div>
+                  <div style="font-size:0.7rem; color:var(--color-accent-gold-dark); font-weight:600; text-align:right;">For long distances</div>
+                </div>
               </div>
               <div class="vehicle-details">
                 <h3 class="vehicle-name">${escapeHTML(v.model_name)}</h3>
-                <div class="vehicle-tagline">${escapeHTML(v.rate_per_km ? 'Tariff: ' + v.rate_per_km : 'Supreme Comfort & Ghat Mastery')}</div>
+                <div class="vehicle-rent-detail">
+                  <span>${escapeHTML(v.capacity || '4 Seater')}</span>
+                  <span>•</span>
+                  <span style="color:var(--color-accent-gold-dark);">${escapeHTML(v.daily_rent || '₹3,500/day')}</span>
+                </div>
+                <div class="vehicle-long-distance-tag">For long distances</div>
                 <p class="vehicle-desc">${escapeHTML(v.description || 'Maintained to pristine standards, fully air-conditioned, and equipped with modern safety features.')}</p>
                 <div class="vehicle-specs-row">
                   <div class="spec-item">
@@ -852,16 +864,19 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
                     <span>Daily Rent</span>
                   </div>
                   <div class="spec-item">
-                    <strong>${escapeHTML(v.mileage || '14-18 km/l')}</strong>
-                    <span>Mileage</span>
+                    <strong>${escapeHTML(v.mileage || 'Diesel')}</strong>
+                    <span>Diesel Expenses</span>
                   </div>
                   <div class="spec-item">
                     <strong>${escapeHTML(v.airbags || v.luggage_bags || 'Dual Airbags')}</strong>
                     <span>Airbags</span>
                   </div>
                 </div>
+                <div class="vehicle-distance-note">
+                  📍 <strong>Seats & Daily Rent:</strong> For long distances
+                </div>
                 <div class="vehicle-action-footer">
-                  <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${escapeHTML((v.model_name || '').replace(/'/g, "\\'"))}')">
+                  <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${escapeHTML((v.model_name || '').replace(/'/g, "\\\'"))}')">
                     <span>Enquire Now</span>
                     <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
                       <path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42L16.86 11H5v2z" />
