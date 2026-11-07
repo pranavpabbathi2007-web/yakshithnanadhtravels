@@ -69,8 +69,8 @@ try {
 // is inactive/unconfigured in GCP, which triggers browser CORS preflight errors and network retries.
 // The website uses the ultra-fast client compression pipeline (~20KB JPEG) directly saved to Cloud Firestore collections.
 // Direct Firebase Storage upload: Attempt upload if storage is initialized, with graceful zero-delay fallback
-const DIRECT_STORAGE_BUCKET_ACTIVE = true;
-let isFirebaseStorageFunctional = true;
+const DIRECT_STORAGE_BUCKET_ACTIVE = false;
+let isFirebaseStorageFunctional = false;
 
 // Safe Performance stub (prevents 503 network errors from firebaselogging-pa.googleapis.com)
 const perf = null;
