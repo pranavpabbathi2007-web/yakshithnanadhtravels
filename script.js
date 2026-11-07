@@ -840,19 +840,10 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
               <div class="vehicle-image-wrapper">
                 <img src="${imgUrl}" alt="${escapeHTML(v.model_name)} - Yakshith Nandh Travels" class="vehicle-image" loading="lazy" onerror="this.onerror=null; this.src='${defaultImg}';">
                 <div class="vehicle-badge-overlay">${escapeHTML(v.category || 'Special Fleet')}</div>
-                <div class="vehicle-specs-overlay">
-                  <div>${escapeHTML(v.capacity || '4 Seater')} • ${escapeHTML(v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags'))}</div>
-                  <div style="font-size:0.7rem; color:var(--color-accent-gold-dark); font-weight:600; text-align:right;">For long distances</div>
-                </div>
+                <div class="vehicle-specs-overlay">${escapeHTML(v.capacity || '4 Seater')} • ${escapeHTML(v.daily_rent ? v.daily_rent : (v.airbags || v.luggage_bags || 'Dual Airbags'))}</div>
               </div>
               <div class="vehicle-details">
                 <h3 class="vehicle-name">${escapeHTML(v.model_name)}</h3>
-                <div class="vehicle-rent-detail">
-                  <span>${escapeHTML(v.capacity || '4 Seater')}</span>
-                  <span>•</span>
-                  <span style="color:var(--color-accent-gold-dark);">${escapeHTML(v.daily_rent || '₹3,500/day')}</span>
-                </div>
-                <div class="vehicle-long-distance-tag">For long distances</div>
                 <p class="vehicle-desc">${escapeHTML(v.description || 'Maintained to pristine standards, fully air-conditioned, and equipped with modern safety features.')}</p>
                 <div class="vehicle-specs-row">
                   <div class="spec-item">
@@ -871,9 +862,10 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
                     <strong>${escapeHTML(v.airbags || v.luggage_bags || 'Dual Airbags')}</strong>
                     <span>Airbags</span>
                   </div>
-                </div>
-                <div class="vehicle-distance-note">
-                  📍 <strong>Seats & Daily Rent:</strong> For long distances
+                  <div class="spec-item" style="grid-column: 1 / -1; border-top: 1px dashed var(--color-border); padding-top: 8px; margin-top: 4px;">
+                    <strong style="color:var(--color-primary); font-size:1.05rem;">${escapeHTML(v.rate_per_km ? (v.rate_per_km.toLowerCase().includes('km') ? v.rate_per_km : v.rate_per_km + ' / km') : '₹23 / km')}</strong>
+                    <span>For Long Distances</span>
+                  </div>
                 </div>
                 <div class="vehicle-action-footer">
                   <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${escapeHTML((v.model_name || '').replace(/'/g, "\\\'"))}')">
