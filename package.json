@@ -1,6 +1,6 @@
 {
   "name": "yakshith-nandh-travels",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Full-stack travel and cab booking platform for Yakshith Nandh Travels, Tirupati",
   "main": "server.js",
   "scripts": {
