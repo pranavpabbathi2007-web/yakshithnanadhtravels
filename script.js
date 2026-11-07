@@ -896,7 +896,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const publishedDestinations = effectiveData.destinations.filter(d => d.is_published !== 0 && d.is_popular !== 0);
       const destGrid = document.querySelector('.destinations-grid');
       if (destGrid && publishedDestinations.length > 0) {
-        const defaultDestImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">Yakshith Nandh Travels</text></svg>';
+        const defaultDestImg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="#f0ece4"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7B263A" font-family="sans-serif" font-size="22" font-weight="bold">Yakshith Nandh Travels</text></svg>');
         destGrid.innerHTML = publishedDestinations.map((d, idx) => {
           const imgUrl = d.image_url || d.imageUrl || d.image || d.photo || defaultDestImg;
           return `
@@ -930,7 +930,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const publishedTrips = effectiveData.trips.filter(t => t.is_published !== 0 && t.is_active !== 0);
       const tripsGrid = document.querySelector('.trips-grid');
       if (tripsGrid && publishedTrips.length > 0) {
-        const defaultTripImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">Tirupati Tour Package</text></svg>';
+        const defaultTripImg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="#f0ece4"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7B263A" font-family="sans-serif" font-size="22" font-weight="bold">Tirupati Tour Package</text></svg>');
         tripsGrid.innerHTML = publishedTrips.map((t, idx) => {
           const imgUrl = t.image_url || defaultTripImg;
 

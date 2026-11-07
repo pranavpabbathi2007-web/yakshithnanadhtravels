@@ -148,7 +148,13 @@ async function _doInitAdminCloudState() {
             const item = d.data();
             if (item) {
               const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
-              const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+              let imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+              if (!imgUrl) {
+                const cleanKey = String(item.name || idVal).replace(/[^a-zA-Z0-9_-]/g, '_');
+                imgUrl = adminImageMap[`destination_${cleanKey}`] ||
+                         adminImageMap[`dest_${cleanKey}`] ||
+                         adminImageMap[cleanKey] || '';
+              }
               destList.push({ ...item, id: idVal, image_url: imgUrl });
             }
           });
@@ -190,7 +196,14 @@ async function _doInitAdminCloudState() {
             const item = d.data();
             if (item) {
               const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
-              const imgUrl = item.image_url || item.imageUrl || item.image || '';
+              let imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+              if (!imgUrl) {
+                const cleanKey = String(item.model_name || item.name || idVal).replace(/[^a-zA-Z0-9_-]/g, '_');
+                imgUrl = adminImageMap[`vehicle_${cleanKey}`] ||
+                         adminImageMap[`veh_${cleanKey}`] ||
+                         adminImageMap[`fleet_${cleanKey}`] ||
+                         adminImageMap[cleanKey] || '';
+              }
               fleetList.push({ ...item, id: idVal, image_url: imgUrl });
             }
           });
@@ -211,7 +224,13 @@ async function _doInitAdminCloudState() {
             const item = d.data();
             if (item) {
               const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
-              const imgUrl = item.image_url || item.imageUrl || item.image || '';
+              let imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+              if (!imgUrl) {
+                const tripTitle = item.title || item.name || idVal;
+                const cleanKey = String(tripTitle).replace(/[^a-zA-Z0-9_-]/g, '_');
+                imgUrl = adminImageMap[`trip_${cleanKey}`] ||
+                         adminImageMap[cleanKey] || '';
+              }
               tripList.push({ ...item, id: idVal, image_url: imgUrl });
             }
           });
@@ -240,7 +259,7 @@ async function _doInitAdminCloudState() {
       getDocs(collection(db, 'admin_images')).catch(err => { console.warn('adminImgSnap warn:', err.message); return null; })
     ]);
 
-    const adminImageMap = {};
+    adminImageMap = {};
     if (adminImgSnap && !adminImgSnap.empty) {
       adminImgSnap.forEach(aiDoc => {
         const aiData = aiDoc.data();
@@ -295,6 +314,12 @@ async function _doInitAdminCloudState() {
         allDestinationsData.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
         setStorage('destinations', allDestinationsData);
         console.log('📍 [Admin Hydration] Loaded destinations from Firestore collection:', allDestinationsData.map(d => ({ id: d.id, name: d.name, has_image: !!d.image_url })));
+        // Self-heal: If any destination has an image in adminImageMap that was missing in collection doc, persist it directly to Firestore doc
+        for (const destItem of allDestinationsData) {
+          if (destItem.image_url) {
+            saveDestinationToFirestore(destItem).catch(() => {});
+          }
+        }
         loadDestinations(false).catch(() => {});
       }
     } else if (destSnap && destSnap.empty) {
@@ -335,6 +360,12 @@ async function _doInitAdminCloudState() {
         allFleetData = mergedFleet;
         setStorage('fleet', allFleetData);
         console.log('🚗 [Admin Hydration] Loaded fleet from Firestore collection:', allFleetData.map(v => ({ id: v.id, name: v.model_name, has_image: !!v.image_url })));
+        // Self-heal: Ensure fleet collection doc has the image
+        for (const vehItem of allFleetData) {
+          if (vehItem.image_url) {
+            saveVehicleToFirestore(vehItem).catch(() => {});
+          }
+        }
         loadFleet(false).catch(() => {});
       }
     } else {
@@ -761,6 +792,7 @@ let allServicesData = [];
 let allFleetData = [];
 let allDestinationsData = [];
 let allTripsData = [];
+let adminImageMap = {}; // Global authoritative image cache
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
@@ -1937,7 +1969,7 @@ async function loadFleet(forceFetch = false) {
   const countBadge = document.getElementById('tabFleetCount');
   if (countBadge) countBadge.textContent = (allFleetData || []).length;
 
-  const placeholderVehicleImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Vehicle Photo</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="sans-serif" font-size="14">Click Edit Vehicle to add photo</text></svg>`;
+  const placeholderVehicleImg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="#f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="#7B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Vehicle Photo</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="#888888" font-family="sans-serif" font-size="14">Click Edit Vehicle to add photo</text></svg>');
 
   container.innerHTML = (allFleetData || []).map(v => {
     const rawImg = v.image_url || v.imageUrl || v.image || v.photo || '';
@@ -2016,8 +2048,8 @@ async function loadDestinations(forceFetch = false) {
     } catch (err) {}
   }
 
-  // Fallback placeholder SVG (shown ONLY when a destination genuinely has no valid image URL)
-  const placeholderImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Photo Uploaded</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="sans-serif" font-size="14">Click Edit Destination to add image</text></svg>`;
+  // Safe, URL-encoded SVG placeholder (immune to HTML attribute quote breaking)
+  const placeholderImg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="#f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="#7B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Photo Uploaded</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="#888888" font-family="sans-serif" font-size="14">Click Edit Destination to add image</text></svg>');
 
   container.innerHTML = (allDestinationsData || []).map(d => {
     // 1. Exact same image field resolution as the working public website
@@ -2101,7 +2133,7 @@ async function loadTrips(forceFetch = false) {
   const countBadge = document.getElementById('tabTripsCount');
   if (countBadge) countBadge.textContent = (allTripsData || []).length;
 
-  const placeholderTripImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Package Photo</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="sans-serif" font-size="14">Click Edit Package to add photo</text></svg>`;
+  const placeholderTripImg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="#f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="#7B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Package Photo</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="#888888" font-family="sans-serif" font-size="14">Click Edit Package to add photo</text></svg>');
 
   container.innerHTML = (allTripsData || []).map(t => {
     const rawImg = t.image_url || t.imageUrl || t.image || t.photo || '';
