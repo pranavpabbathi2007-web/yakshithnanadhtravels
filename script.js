@@ -4,7 +4,7 @@
  * Dispatch Hotline: +91 88868 30755 / +91 97009 35888
  */
 
-import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794060000000';
+import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794080000000';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. DOM Elements
