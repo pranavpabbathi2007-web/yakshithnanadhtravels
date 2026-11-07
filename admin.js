@@ -28,7 +28,7 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1794020000000';
+} from './firebase-sdk.js?v=1794060000000';
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -271,7 +271,10 @@ async function _doInitAdminCloudState() {
         const currentDest = allDestinationsData || [];
         const merged = destList.map(incoming => {
           const existing = currentDest.find(e => String(e.id) === String(incoming.id));
-          const chosenImg = incoming.image_url || (existing ? existing.image_url : '') || '';
+          const incImg = incoming.image_url || '';
+          const existingImg = existing ? (existing.image_url || '') : '';
+          const keepExisting = existingImg && (existingImg.startsWith('data:') || existingImg.includes('firebasestorage')) && (!incImg || incImg.includes('unsplash.com'));
+          const chosenImg = keepExisting ? existingImg : (incImg || existingImg || '');
           return { ...incoming, image_url: chosenImg };
         });
 
@@ -292,6 +295,7 @@ async function _doInitAdminCloudState() {
         allDestinationsData.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
         setStorage('destinations', allDestinationsData);
         console.log('📍 [Admin Hydration] Loaded destinations from Firestore collection:', allDestinationsData.map(d => ({ id: d.id, name: d.name, has_image: !!d.image_url })));
+        loadDestinations(false).catch(() => {});
       }
     } else if (destSnap && destSnap.empty) {
       console.log('📍 [Admin Hydration] No destinations in Firestore collection yet. Seeding default destinations...');
@@ -306,15 +310,32 @@ async function _doInitAdminCloudState() {
         const item = d.data();
         if (item) {
           const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
-          const imgUrl = item.image_url || item.imageUrl || item.image || '';
+          let imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+          if (!imgUrl) {
+            const cleanKey = String(item.model_name || item.name || idVal).replace(/[^a-zA-Z0-9_-]/g, '_');
+            imgUrl = adminImageMap[`vehicle_${cleanKey}`] ||
+                     adminImageMap[`veh_${cleanKey}`] ||
+                     adminImageMap[`fleet_${cleanKey}`] ||
+                     adminImageMap[cleanKey] || '';
+          }
           fleetList.push({ ...item, id: idVal, image_url: imgUrl });
         }
       });
       if (fleetList.length > 0) {
-        fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-        allFleetData = fleetList;
+        const currentFleet = allFleetData || [];
+        const mergedFleet = fleetList.map(incoming => {
+          const existing = currentFleet.find(e => String(e.id) === String(incoming.id));
+          const incImg = incoming.image_url || '';
+          const existingImg = existing ? (existing.image_url || '') : '';
+          const keepExisting = existingImg && (existingImg.startsWith('data:') || existingImg.includes('firebasestorage')) && (!incImg || incImg.includes('unsplash.com'));
+          const chosenImg = keepExisting ? existingImg : (incImg || existingImg || '');
+          return { ...incoming, image_url: chosenImg };
+        });
+        mergedFleet.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        allFleetData = mergedFleet;
         setStorage('fleet', allFleetData);
-        console.log('🚗 [Admin Hydration] Loaded fleet from Firestore collection:', fleetList.map(v => ({ id: v.id, name: v.model_name, has_image: !!v.image_url })));
+        console.log('🚗 [Admin Hydration] Loaded fleet from Firestore collection:', allFleetData.map(v => ({ id: v.id, name: v.model_name, has_image: !!v.image_url })));
+        loadFleet(false).catch(() => {});
       }
     } else {
       console.log('🚗 [Admin Hydration] No fleet in Firestore collection yet. Seeding default fleet...');
@@ -329,15 +350,31 @@ async function _doInitAdminCloudState() {
         const item = d.data();
         if (item) {
           const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
-          const imgUrl = item.image_url || item.imageUrl || item.image || '';
+          let imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+          if (!imgUrl) {
+            const tripTitle = item.title || item.name || idVal;
+            const cleanKey = String(tripTitle).replace(/[^a-zA-Z0-9_-]/g, '_');
+            imgUrl = adminImageMap[`trip_${cleanKey}`] ||
+                     adminImageMap[cleanKey] || '';
+          }
           tripList.push({ ...item, id: idVal, image_url: imgUrl });
         }
       });
       if (tripList.length > 0) {
-        tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-        allTripsData = tripList;
+        const currentTrips = allTripsData || [];
+        const mergedTrips = tripList.map(incoming => {
+          const existing = currentTrips.find(e => String(e.id) === String(incoming.id));
+          const incImg = incoming.image_url || '';
+          const existingImg = existing ? (existing.image_url || '') : '';
+          const keepExisting = existingImg && (existingImg.startsWith('data:') || existingImg.includes('firebasestorage')) && (!incImg || incImg.includes('unsplash.com'));
+          const chosenImg = keepExisting ? existingImg : (incImg || existingImg || '');
+          return { ...incoming, image_url: chosenImg };
+        });
+        mergedTrips.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        allTripsData = mergedTrips;
         setStorage('trips', allTripsData);
-        console.log('🧳 [Admin Hydration] Loaded trips from Firestore collection:', tripList.map(t => ({ id: t.id, title: t.title || t.name, has_image: !!t.image_url })));
+        console.log('🧳 [Admin Hydration] Loaded trips from Firestore collection:', allTripsData.map(t => ({ id: t.id, title: t.title || t.name, has_image: !!t.image_url })));
+        loadTrips(false).catch(() => {});
       }
     } else {
       console.log('🧳 [Admin Hydration] No trips in Firestore collection yet. Seeding default trips...');
@@ -1872,39 +1909,48 @@ async function loadFleet(forceFetch = false) {
   const container = document.getElementById('fleetCardsContainer');
   if (!container) return;
 
+  // 1. If memory has not been hydrated from Firestore yet, ensure cloud init has completed
+  if (!allFleetData || allFleetData.length === 0) {
+    try {
+      await initAdminCloudState();
+    } catch (e) {}
+  }
+
+  // 2. Prioritize existing memory or localStorage before falling back to API
+  if (!allFleetData || allFleetData.length === 0) {
+    allFleetData = getStorage('fleet', null);
+  }
+
   if (forceFetch || !allFleetData || allFleetData.length === 0) {
     try {
       const res = await fetch('/api/fleet');
       if (res.ok) {
         const data = await res.json();
-        allFleetData = data.fleet || [];
-        setStorage('fleet', allFleetData);
-      } else {
-        throw new Error('API offline');
+        if (!allFleetData || allFleetData.length === 0) {
+          allFleetData = data.fleet || [];
+          setStorage('fleet', allFleetData);
+        }
       }
-    } catch (err) {
-      if (!allFleetData || allFleetData.length === 0) {
-        allFleetData = getStorage('fleet', SEED_DATA.fleet);
-      }
-    }
+    } catch (err) {}
   }
 
-  if (!allFleetData || allFleetData.length === 0) {
-    allFleetData = getStorage('fleet', SEED_DATA.fleet);
-  }
+  const countBadge = document.getElementById('tabFleetCount');
+  if (countBadge) countBadge.textContent = (allFleetData || []).length;
 
-  const defaultVehiclePhoto = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80';
+  const placeholderVehicleImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Vehicle Photo</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="sans-serif" font-size="14">Click Edit Vehicle to add photo</text></svg>`;
 
-  container.innerHTML = allFleetData.map(v => {
-    const isFirebase = v.image_url && v.image_url.includes('firebasestorage.app');
-    const displayImg = v.image_url || defaultVehiclePhoto;
+  container.innerHTML = (allFleetData || []).map(v => {
+    const rawImg = v.image_url || v.imageUrl || v.image || v.photo || '';
+    const hasValidImg = Boolean(rawImg && typeof rawImg === 'string' && rawImg.trim().length > 5);
+    const displayImg = hasValidImg ? rawImg.trim() : placeholderVehicleImg;
+    const isFirebase = hasValidImg && (rawImg.includes('firebasestorage.app') || rawImg.startsWith('data:'));
     const airbagsDisplay = v.airbags || v.luggage_bags || 'Dual Airbags';
     const isPub = (v.is_published !== 0 && v.is_available !== 0);
 
     return `
       <div class="admin-content-card">
         <div style="width:100%; height:150px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(v.model_name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultVehiclePhoto}'">
+          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(v.model_name)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${placeholderVehicleImg}';">
           <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.9); color:#FFF9F0;">${escapeHTML(v.category || 'Fleet')}</span>
           <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" style="position:absolute; top:8px; right:8px;" onclick="toggleVehiclePublish(${v.id})" title="Click to toggle publish status">
             ${isPub ? '🟢 Published' : '🟡 Draft'}
@@ -2027,35 +2073,41 @@ async function loadTrips(forceFetch = false) {
   const container = document.getElementById('tripsCardsContainer') || document.getElementById('tripCardsContainer');
   if (!container) return;
 
+  // 1. If memory has not been hydrated from Firestore yet, ensure cloud init has completed
+  if (!allTripsData || allTripsData.length === 0) {
+    try {
+      await initAdminCloudState();
+    } catch (e) {}
+  }
+
+  // 2. Prioritize existing memory or localStorage before falling back to API
+  if (!allTripsData || allTripsData.length === 0) {
+    allTripsData = getStorage('trips', null);
+  }
+
   if (forceFetch || !allTripsData || allTripsData.length === 0) {
     try {
       const res = await fetch('/api/trips');
       if (res.ok) {
         const data = await res.json();
-        allTripsData = data.trips || [];
-        setStorage('trips', allTripsData);
-      } else {
-        throw new Error('API offline');
+        if (!allTripsData || allTripsData.length === 0) {
+          allTripsData = data.trips || [];
+          setStorage('trips', allTripsData);
+        }
       }
-    } catch (err) {
-      if (!allTripsData || allTripsData.length === 0) {
-        allTripsData = getStorage('trips', SEED_DATA.trips);
-      }
-    }
-  }
-
-  if (!allTripsData || allTripsData.length === 0) {
-    allTripsData = getStorage('trips', SEED_DATA.trips);
+    } catch (err) {}
   }
 
   const countBadge = document.getElementById('tabTripsCount');
-  if (countBadge) countBadge.textContent = allTripsData.length;
+  if (countBadge) countBadge.textContent = (allTripsData || []).length;
 
-  const defaultTripPhoto = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+  const placeholderTripImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">No Package Photo</text><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="sans-serif" font-size="14">Click Edit Package to add photo</text></svg>`;
 
-  container.innerHTML = allTripsData.map(t => {
-    const isFirebase = t.image_url && t.image_url.includes('firebasestorage.app');
-    const displayImg = t.image_url || defaultTripPhoto;
+  container.innerHTML = (allTripsData || []).map(t => {
+    const rawImg = t.image_url || t.imageUrl || t.image || t.photo || '';
+    const hasValidImg = Boolean(rawImg && typeof rawImg === 'string' && rawImg.trim().length > 5);
+    const displayImg = hasValidImg ? rawImg.trim() : placeholderTripImg;
+    const isFirebase = hasValidImg && (rawImg.includes('firebasestorage.app') || rawImg.startsWith('data:'));
     const isPub = (t.is_published !== 0 && t.is_popular !== 0 && t.is_active !== 0);
 
     const itineraryLines = (t.itinerary || '').split('\n').filter(l => l.trim().length > 0);
@@ -2066,43 +2118,35 @@ async function loadTrips(forceFetch = false) {
     return `
       <div class="admin-content-card">
         <div style="width:100%; height:160px; background:#f0ece4; border-radius:8px; overflow:hidden; margin-bottom:12px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(t.title)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${defaultTripPhoto}'">
-          <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.92); color:#FFF9F0; font-weight:700;">
-            📅 ${escapeHTML(t.duration_days || '1 Day')}
-          </span>
+          <img src="${escapeHTML(displayImg)}" alt="${escapeHTML(t.title)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${placeholderTripImg}';">
+          <span class="card-top-tag" style="position:absolute; top:8px; left:8px; margin:0; background:rgba(123,38,58,0.92); color:#FFF9F0; font-weight:700;">${escapeHTML(t.duration_days || 'Tour Package')}</span>
           <button type="button" class="${isPub ? 'btn-status-published' : 'btn-status-draft'}" style="position:absolute; top:8px; right:8px;" onclick="toggleTripPublish(${t.id})" title="Click to toggle publish status">
             ${isPub ? '🟢 Published' : '🟡 Draft'}
           </button>
         </div>
 
-        <h3 style="margin-top:0; margin-bottom:4px; font-size:1.15rem;">${escapeHTML(t.title)}</h3>
-        <div style="font-family:var(--font-subheading); font-size:0.92rem; color:var(--color-accent-gold-dark); font-weight:600; margin-bottom:10px;">
-          ${escapeHTML(t.subtitle || '')}
+        <h3 style="margin-top:0; margin-bottom:4px; font-size:1.05rem; line-height:1.3;">${escapeHTML(t.title)}</h3>
+        <div style="font-family:var(--font-heading); color:var(--color-primary); font-size:0.88rem; font-weight:700; margin-bottom:8px;">
+          Starting: ${escapeHTML(t.starting_price || 'Enquire')}
         </div>
 
-        <div style="background:#FFF9F0; border:1px solid var(--color-border); border-radius:6px; padding:8px 10px; margin-bottom:10px;">
-          <strong style="display:block; font-size:0.75rem; color:var(--color-primary); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">📍 Day-Wise Itinerary:</strong>
-          ${itineraryPreview}
-          ${itineraryLines.length > 3 ? `<div style="font-size:0.75rem; color:var(--color-text-muted); font-style:italic;">+ ${itineraryLines.length - 3} more day(s)...</div>` : ''}
+        ${t.subtitle ? `<div style="font-size:0.78rem; color:var(--color-text-muted); margin-bottom:10px;">${escapeHTML(t.subtitle)}</div>` : ''}
+
+        <div style="background:#FFF9F0; border:1px solid var(--color-border); border-radius:6px; padding:8px 10px; margin-bottom:12px;">
+          <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--color-primary); margin-bottom:4px;">Itinerary Highlights</div>
+          ${itineraryPreview || '<div style="font-size:0.8rem; color:var(--color-text-muted);">Customizable itinerary available on request.</div>'}
         </div>
 
-        <div style="background:#FFFFFF; border:1px dashed var(--color-border-gold); border-radius:6px; padding:8px 10px; margin-bottom:10px; font-size:0.78rem;">
-          <strong style="color:var(--color-primary); display:block; margin-bottom:4px;">🚗 Vehicles & Pricing:</strong>
-          <div style="color:var(--color-text-main); line-height:1.45;">${escapeHTML(t.vehicle_pricing || 'Standard Sedan & SUV packages available')}</div>
-        </div>
-
-        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px; font-size:0.7rem; font-weight:600;">
-          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">🛣️ Tolls</span>
-          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">🅿️ Parking</span>
-          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">👨‍✈️ Driver Batta</span>
-          <span style="background:#E8F5E9; color:#1B5E20; padding:2px 6px; border-radius:4px;">🏛️ Border Tax</span>
-          <span style="background:#FFF3E0; color:#E65100; padding:2px 6px; border-radius:4px;">📞 24/7 Support</span>
-        </div>
+        ${isFirebase ? `
+          <div style="font-size:0.72rem; color:#D86300; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:4px;">
+            <span>🔥 Stored in Firebase Cloud</span>
+          </div>
+        ` : ''}
 
         <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--color-border); display:flex; justify-content:space-between; align-items:center;">
           <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTripModal(${t.id})">Edit Package</button>
           <div class="action-btn-group">
-            <button type="button" class="action-icon-btn delete" title="Delete Trip Package" onclick="deleteTripRecord(${t.id})">
+            <button type="button" class="action-icon-btn delete" title="Delete trip package" onclick="deleteTripRecord(${t.id})">
               <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
@@ -2331,7 +2375,10 @@ window.openEditVehicleModal = (id) => {
 
   document.getElementById('vehicleModal').classList.add('open');
 };
-window.closeVehicleModal = () => document.getElementById('vehicleModal').classList.remove('open');
+window.closeVehicleModal = () => {
+  const p = document.getElementById('veh_image_preview'); if (p) p.src = '';
+  document.getElementById('vehicleModal').classList.remove('open');
+};
 
 window.openAddDestinationModal = () => {
   document.getElementById('destModalTitle').textContent = 'Add New Destination';
@@ -2401,7 +2448,10 @@ window.openEditDestinationModal = (id) => {
 
   document.getElementById('destinationModal').classList.add('open');
 };
-window.closeDestinationModal = () => document.getElementById('destinationModal').classList.remove('open');
+window.closeDestinationModal = () => {
+  const p = document.getElementById('dest_image_preview'); if (p) p.src = '';
+  document.getElementById('destinationModal').classList.remove('open');
+};
 
 window.openAddTripModal = () => {
   document.getElementById('tripModalTitle').textContent = 'Add New Trip Package';
@@ -2465,7 +2515,10 @@ window.openEditTripModal = (id) => {
   document.getElementById('tripModal').classList.add('open');
 };
 
-window.closeTripModal = () => document.getElementById('tripModal').classList.remove('open');
+window.closeTripModal = () => {
+  const p = document.getElementById('trip_image_preview'); if (p) p.src = '';
+  document.getElementById('tripModal').classList.remove('open');
+};
 
 // ==========================================================================
 // 1-CLICK PUBLISH / DRAFT TOGGLE ACTIONS (INSTANT LIVE SYNC)

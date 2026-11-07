@@ -4,7 +4,7 @@
  * Dispatch Hotline: +91 88868 30755 / +91 97009 35888
  */
 
-import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794020000000';
+import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794060000000';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. DOM Elements
@@ -622,10 +622,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             mergedFleet.push({ ...incoming, image_url: incImg });
           } else {
             const existingImg = mergedFleet[idx].image_url || '';
+            const keepExisting = existingImg && (existingImg.startsWith('data:') || existingImg.includes('firebasestorage')) && (!incImg || incImg.includes('unsplash.com'));
             mergedFleet[idx] = {
               ...mergedFleet[idx],
               ...incoming,
-              image_url: incImg || existingImg
+              image_url: keepExisting ? existingImg : (incImg || existingImg)
             };
           }
         }
@@ -647,10 +648,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             merged.push({ ...incoming, image_url: incImg });
           } else {
             const existingImg = merged[idx].image_url || '';
+            const keepExisting = existingImg && (existingImg.startsWith('data:') || existingImg.includes('firebasestorage')) && (!incImg || incImg.includes('unsplash.com'));
             merged[idx] = {
               ...merged[idx],
               ...incoming,
-              image_url: incImg || existingImg
+              image_url: keepExisting ? existingImg : (incImg || existingImg)
             };
           }
         }
@@ -672,10 +674,11 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             mergedTrips.push({ ...incoming, image_url: incImg });
           } else {
             const existingImg = mergedTrips[idx].image_url || '';
+            const keepExisting = existingImg && (existingImg.startsWith('data:') || existingImg.includes('firebasestorage')) && (!incImg || incImg.includes('unsplash.com'));
             mergedTrips[idx] = {
               ...mergedTrips[idx],
               ...incoming,
-              image_url: incImg || existingImg
+              image_url: keepExisting ? existingImg : (incImg || existingImg)
             };
           }
         }
@@ -893,7 +896,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const publishedDestinations = effectiveData.destinations.filter(d => d.is_published !== 0 && d.is_popular !== 0);
       const destGrid = document.querySelector('.destinations-grid');
       if (destGrid && publishedDestinations.length > 0) {
-        const defaultDestImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+        const defaultDestImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">Yakshith Nandh Travels</text></svg>';
         destGrid.innerHTML = publishedDestinations.map((d, idx) => {
           const imgUrl = d.image_url || d.imageUrl || d.image || d.photo || defaultDestImg;
           return `
@@ -927,7 +930,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       const publishedTrips = effectiveData.trips.filter(t => t.is_published !== 0 && t.is_active !== 0);
       const tripsGrid = document.querySelector('.trips-grid');
       if (tripsGrid && publishedTrips.length > 0) {
-        const defaultTripImg = 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80';
+        const defaultTripImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="%23f0ece4"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%237B263A" font-family="sans-serif" font-size="22" font-weight="bold">Tirupati Tour Package</text></svg>';
         tripsGrid.innerHTML = publishedTrips.map((t, idx) => {
           const imgUrl = t.image_url || defaultTripImg;
 
@@ -1115,9 +1118,14 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         const fleetList = [];
         snap.forEach(d => {
           const item = d.data();
-          if (item) fleetList.push(item);
+          if (item) {
+            const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+            const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+            fleetList.push({ ...item, id: idVal, image_url: imgUrl });
+          }
         });
         if (fleetList.length > 0) {
+          fleetList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
           applyWebsiteData({ fleet: fleetList }, 'firestore');
         }
       }
@@ -1152,9 +1160,14 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         const tripList = [];
         snap.forEach(d => {
           const item = d.data();
-          if (item) tripList.push(item);
+          if (item) {
+            const idVal = item.id !== undefined ? item.id : (isNaN(d.id) ? d.id : parseInt(d.id, 10));
+            const imgUrl = item.image_url || item.imageUrl || item.image || item.photo || '';
+            tripList.push({ ...item, id: idVal, image_url: imgUrl });
+          }
         });
         if (tripList.length > 0) {
+          tripList.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
           applyWebsiteData({ trips: tripList }, 'firestore');
         }
       }
