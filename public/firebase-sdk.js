@@ -26,12 +26,7 @@ import {
   serverTimestamp,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+// Firebase Cloud Storage import removed: zero-CORS Firestore compression active
 
 // Web app's Firebase project configuration
 const firebaseConfig = {
@@ -58,17 +53,8 @@ try {
   db = getFirestore(app);
 }
 
-const storage = getStorage(app);
-try {
-  storage.maxUploadRetryTime = 1500;
-  storage.maxOperationRetryTime = 1500;
-} catch (e) {}
-
-// Direct Firebase Storage upload flag:
-// Direct storage upload is bypassed by default because the bucket gs://yakshithnandhtravels.firebasestorage.app
-// is inactive/unconfigured in GCP, which triggers browser CORS preflight errors and network retries.
-// The website uses the ultra-fast client compression pipeline (~20KB JPEG) directly saved to Cloud Firestore collections.
-// Direct Firebase Storage upload: Attempt upload if storage is initialized, with graceful zero-delay fallback
+// Storage bucket bypass: all images saved directly to Cloud Firestore documents
+const storage = null;
 const DIRECT_STORAGE_BUCKET_ACTIVE = false;
 let isFirebaseStorageFunctional = false;
 
@@ -320,43 +306,8 @@ async function uploadImageToFirebaseStorage(file, folder = 'general') {
   const cleanName = (file.name || 'image.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
   const storagePath = `${folder}/${uniqueId}_${cleanName}`;
 
-  // 2. Direct Firebase Storage upload (only if bucket is explicitly active)
-  if (DIRECT_STORAGE_BUCKET_ACTIVE && storage && isFirebaseStorageFunctional) {
-    try {
-      const storageRef = ref(storage, storagePath);
-      const metadata = {
-        contentType: mimeType,
-        customMetadata: {
-          uploadedAt: new Date().toISOString(),
-          originalName: cleanName,
-          module: folder
-        }
-      };
+  // 2. Ultra-fast, zero-CORS Cloud Image (~25KB)
 
-      const uploadPromise = uploadBytes(storageRef, uploadPayload, metadata);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Storage timeout')), 4000)
-      );
-
-      const snapshot = await Promise.race([uploadPromise, timeoutPromise]);
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-
-      if (downloadUrl && !downloadUrl.startsWith('blob:')) {
-        console.log(`✅ Firebase Storage upload successful: ${storagePath}`);
-        return {
-          success: true,
-          url: downloadUrl,
-          storagePath: storagePath,
-          source: 'firebase_storage'
-        };
-      }
-    } catch (storageErr) {
-      isFirebaseStorageFunctional = false;
-      console.debug('Firebase Storage direct upload note (switching to ultra-fast Firestore cloud fallback).');
-    }
-  }
-
-  // 3. Ultra-fast, zero-CORS Cloud Image (~25KB)
   // Stored directly in Firestore collection documents (fleet/{id}, destinations/{id}, trips/{id})
   if (compressed && compressed.dataUrl) {
     return {
