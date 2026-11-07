@@ -862,10 +862,13 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
                     <strong>${escapeHTML(v.airbags || v.luggage_bags || 'Dual Airbags')}</strong>
                     <span>Airbags</span>
                   </div>
-                  <div class="spec-item" style="grid-column: 1 / -1; border-top: 1px dashed var(--color-border); padding-top: 8px; margin-top: 4px;">
-                    <strong style="color:var(--color-primary); font-size:1.05rem;">${escapeHTML(v.rate_per_km ? (v.rate_per_km.toLowerCase().includes('km') ? v.rate_per_km : v.rate_per_km + ' / km') : '₹23 / km')}</strong>
+                  <div class="spec-item-long-distance">
+                    <strong>${escapeHTML(v.rate_per_km ? (v.rate_per_km.toLowerCase().includes('km') ? v.rate_per_km : v.rate_per_km + ' / km') : '₹23 / km')}</strong>
                     <span>For Long Distances</span>
                   </div>
+                </div>
+                <div class="vehicle-extra-charges">
+                  <span>Tolls, parking, taxes and other charges extra</span>
                 </div>
                 <div class="vehicle-action-footer">
                   <button type="button" class="btn btn-primary" style="width:100%;" onclick="selectVehicleForBooking('${escapeHTML((v.model_name || '').replace(/'/g, "\\\'"))}')">
