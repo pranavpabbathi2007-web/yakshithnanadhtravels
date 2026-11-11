@@ -1352,6 +1352,16 @@ function getSettings() {
 }
 
 function updateSettings(settingsMap) {
+  if (!settingsMap || typeof settingsMap !== 'object') {
+    return getSettings();
+  }
+
+  for (const [key, val] of Object.entries(settingsMap)) {
+    if (val !== undefined && val !== null) {
+      memoryStore.settings[key] = String(val);
+    }
+  }
+
   if (isSqlite) {
     try {
       const stmt = db.prepare(`
@@ -1360,15 +1370,16 @@ function updateSettings(settingsMap) {
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `);
       for (const [key, val] of Object.entries(settingsMap)) {
-        stmt.run(key, val.toString());
+        if (val !== undefined && val !== null) {
+          stmt.run(key, String(val));
+        }
       }
+      persistStateToFile();
       return getSettings();
     } catch (e) {}
   }
 
-  for (const [key, val] of Object.entries(settingsMap)) {
-    memoryStore.settings[key] = val.toString();
-  }
+  persistStateToFile();
   return { ...memoryStore.settings };
 }
 
@@ -1409,7 +1420,7 @@ function setFullState(data) {
     memoryStore.contacts = JSON.parse(JSON.stringify(data.contacts));
   }
   if (data.settings && typeof data.settings === 'object') {
-    memoryStore.settings = { ...memoryStore.settings, ...data.settings };
+    updateSettings(data.settings);
   }
   persistStateToFile();
   return getFullSnapshot();

@@ -192,9 +192,9 @@
 
     <div class="mobile-drawer-contact">
       <p style="font-weight:700; color:var(--color-primary); margin-bottom:6px;">24/7 Tirupati Helplines:</p>
-      <p><a href="tel:+918886830755" style="color:var(--color-text-main); font-weight:600;">📞 +91 88868 30755</a></p>
-      <p><a href="tel:+919700935888" style="color:var(--color-text-main); font-weight:600;">📞 +91 97009 35888</a></p>
-      <p style="margin-top:8px; font-size:0.8rem; color:var(--color-text-muted);">Slogan: "Your Safety, Our Priority."
+      <p><a href="tel:+918886830755" class="mobile-drawer-primary-phone" style="color:var(--color-text-main); font-weight:600;">📞 +91 88868 30755</a></p>
+      <p><a href="tel:+919700935888" class="mobile-drawer-secondary-phone" style="color:var(--color-text-main); font-weight:600;">📞 +91 97009 35888</a></p>
+      <p class="mobile-drawer-slogan" style="margin-top:8px; font-size:0.8rem; color:var(--color-text-muted);">Slogan: "Your Safety, Our Priority."
       </p>
     </div>
   </div>
@@ -1311,7 +1311,7 @@
               "Your Journey Begins With Trust. Your Safety, Our Priority."
             </div>
             <p class="about-paragraph">
-              Born and operating at the holy foothills of Tirumala, <strong>Yakshith Nandh Travels</strong> was founded
+              Born and operating at the holy foothills of Tirumala, <strong id="aboutBrandName">Yakshith Nandh Travels</strong> was founded
               with a clear, heartfelt purpose: to offer visiting pilgrims, families, and travelers dignified,
               ultra-reliable, and safe transportation.
             </p>
@@ -1578,7 +1578,7 @@
                     <path
                       d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                   </svg>
-                  <span>Submitting will open WhatsApp (+91 88868 30755) with your pre-filled details to review and
+                  <span id="bookingWhatsappNotice">Submitting will open WhatsApp (+91 88868 30755) with your pre-filled details to review and
                     send.</span>
                 </div>
               </div>
@@ -1723,7 +1723,7 @@
                 <path
                   d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
               </svg>
-              <span>Call +91 88868 30755</span>
+              <span id="locationBannerCallText">Call +91 88868 30755</span>
             </a>
             <a href="https://wa.me/918886830755" target="_blank" rel="noopener noreferrer" class="btn btn-gold">
               <svg style="width:18px;height:18px;fill:currentColor" viewBox="0 0 24 24">
@@ -1754,10 +1754,10 @@
           <a href="#home" class="footer-brand-logo">
             <img src="/images/logo.png" alt="Yakshith Nandh Travels Logo" class="brand-logo-img footer-logo-img">
             <div>
-              <span
+              <span id="footerBrandName"
                 style="font-family:var(--font-heading); font-size:1.25rem; font-weight:800; color:var(--color-primary); display:block; line-height:1.1;">Yakshith
                 Nandh Travels</span>
-              <span
+              <span id="footerBrandLocation"
                 style="font-size:0.75rem; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.5px;">Tirupati,
                 Andhra Pradesh</span>
             </div>
@@ -1816,7 +1816,7 @@
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
-              <span>Tirupati, Andhra Pradesh, India</span>
+              <span id="footerContactLocation">Tirupati, Andhra Pradesh, India</span>
             </div>
             <div class="footer-contact-row">
               <svg viewBox="0 0 24 24">
@@ -1824,8 +1824,8 @@
                   d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
               </svg>
               <div>
-                <a href="tel:+918886830755">+91 88868 30755</a> (Primary)<br>
-                <a href="tel:+919700935888">+91 97009 35888</a> (Secondary)
+                <a id="footerPrimaryPhone" href="tel:+918886830755">+91 88868 30755</a> (Primary)<br>
+                <a id="footerSecondaryPhone" href="tel:+919700935888">+91 97009 35888</a> (Secondary)
               </div>
             </div>
             <div class="footer-contact-row">
@@ -1855,7 +1855,7 @@
       <!-- Footer Bottom Bar -->
       <div class="footer-bottom-bar">
         <div>
-          &copy; 2026 <strong>Yakshith Nandh Travels</strong>. All Rights Reserved. Tirupati, Andhra Pradesh.
+          &copy; 2026 <strong id="footerBottomBrand">Yakshith Nandh Travels</strong>. All Rights Reserved. <span id="footerBottomLocation">Tirupati, Andhra Pradesh</span>.
         </div>
       </div>
 
@@ -1888,7 +1888,7 @@
   </div>
 
   <!-- JavaScript (ES Module) -->
-  <script type="module" src="/script.js?v=1794073000000"></script>
+  <script type="module" src="/script.js?v=1794370000000"></script>
 
 </body>
 

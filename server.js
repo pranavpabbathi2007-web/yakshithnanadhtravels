@@ -80,13 +80,26 @@ function isValidPhone(phone) {
   return false;
 }
 
+function formatWhatsAppPhoneDigits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length === 10) return '91' + digits;
+  if (digits.length === 11 && digits.startsWith('0')) return '91' + digits.slice(1);
+  return digits || '918886830755';
+}
+
 /**
  * Generate WhatsApp Message URL
  */
 function generateWhatsAppBookingUrl(booking) {
   const notesText = booking.additional_notes ? booking.additional_notes : 'None';
+  const siteSettings = (typeof db.getSettings === 'function' ? db.getSettings() : null) || {};
+  const companyName = siteSettings.company_name || 'Yakshith Nandh Travels';
+  const primaryPhone = siteSettings.primary_phone || '+91 88868 30755';
+  const locationText = siteSettings.location || 'Tirupati';
+  const waPhone = formatWhatsAppPhoneDigits(primaryPhone);
+
   const text = 
-`*YAKSHITH NANDH TRAVELS - BOOKING REGISTRATION*
+`*${companyName.toUpperCase()} - BOOKING REGISTRATION*
 🙏 *Namaste! Here is my confirmed booking:*
 ━━━━━━━━━━━━━━━━━━━━
 🎫 *Booking Ref:* ${booking.booking_ref}
@@ -100,10 +113,10 @@ function generateWhatsAppBookingUrl(booking) {
 👥 *Passengers:* ${booking.passenger_count}
 📝 *Notes:* ${notesText}
 ━━━━━━━━━━━━━━━━━━━━
-📍 *Tirupati Dispatch Center:* +91 88868 30755
-_Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
+📍 *${locationText} Dispatch Center:* ${primaryPhone}
+_Booking registered in ${companyName} Dispatch Queue_`;
 
-  return `https://api.whatsapp.com/send?phone=918886830755&text=${encodeURIComponent(text)}`;
+  return `https://api.whatsapp.com/send?phone=${waPhone}&text=${encodeURIComponent(text)}`;
 }
 
 /**

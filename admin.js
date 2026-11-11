@@ -28,7 +28,64 @@ import {
   syncAllToFirestore,
   uploadImageToFirebaseStorage,
   compressImageFile
-} from './firebase-sdk.js?v=1794080000000';
+} from './firebase-sdk.js?v=1794370000000';
+
+let allSettingsData = null;
+
+function readSavedSettingsFromStorage() {
+  try {
+    const raw = localStorage.getItem('ynt_settings');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function isDefaultSeedSettings(s) {
+  if (!s || typeof s !== 'object' || s.updated_at) return false;
+  const def = SEED_DATA.settings;
+  return Object.keys(def).every(k => String(s[k] || '').trim() === String(def[k] || '').trim());
+}
+
+function pickNewerSettings(current, candidate) {
+  if (!candidate || typeof candidate !== 'object' || (!candidate.company_name && !candidate.primary_phone && !candidate.email)) {
+    return current;
+  }
+  if (!current || typeof current !== 'object') return { ...candidate };
+
+  const tCur = current.updated_at ? Date.parse(current.updated_at) : 0;
+  const tCand = candidate.updated_at ? Date.parse(candidate.updated_at) : 0;
+
+  if (tCand && !tCur) return { ...candidate };
+  if (tCur && !tCand) return { ...current };
+  if (tCand && tCur) {
+    if (tCand > tCur) return { ...candidate };
+    if (tCur > tCand) return { ...current };
+    return isDefaultSeedSettings(candidate) && !isDefaultSeedSettings(current) ? { ...current } : { ...candidate };
+  }
+
+  if (isDefaultSeedSettings(current) && !isDefaultSeedSettings(candidate)) return { ...candidate };
+  return { ...current };
+}
+
+function applyAdminBrandUI(settings) {
+  if (!settings || typeof settings !== 'object') return;
+  const company = settings.company_name || 'Yakshith Nandh Travels';
+  const location = settings.location || 'Tirupati, Andhra Pradesh, India';
+  const primary = settings.primary_phone || '+91 88868 30755';
+  const secondary = settings.secondary_phone || '+91 97009 35888';
+
+  const headerTitle = document.getElementById('adminHeaderTitle');
+  if (headerTitle) headerTitle.textContent = `${company} – Admin Master Console`;
+
+  const sessionInfo = document.getElementById('adminSessionInfo');
+  if (sessionInfo) sessionInfo.textContent = `${location} • 24/7 Hotline ${primary}`;
+
+  const footerInfo = document.getElementById('adminFooterInfo');
+  if (footerInfo) {
+    footerInfo.innerHTML = `&copy; 2026 ${escapeHTML(company)} &bull; Master Dispatch Console &bull; Helplines: ${escapeHTML(primary)} / ${escapeHTML(secondary)}`;
+  }
+}
 
 function showAdminToast(msg) {
   let toast = document.getElementById('adminGlobalToast');
@@ -49,7 +106,8 @@ function showAdminToast(msg) {
 }
 
 async function syncStateToFirebaseCloud() {
-  const currentSettings = getStorage('settings', SEED_DATA.settings);
+  const currentSettings = allSettingsData || readSavedSettingsFromStorage() || { ...SEED_DATA.settings };
+  allSettingsData = currentSettings;
   const snapshot = {
     fleet: allFleetData || [],
     destinations: allDestinationsData || [],
@@ -106,7 +164,9 @@ async function _doInitAdminCloudState() {
   allTripsData = getStorage('trips', SEED_DATA.trips);
   allServicesData = getStorage('services', SEED_DATA.services);
 
+  allSettingsData = pickNewerSettings(allSettingsData, readSavedSettingsFromStorage());
   const docRef = doc(db, 'site_content', 'data');
+  const settingsDocRef = doc(db, 'settings', 'general');
 
   // 2. Attach real-time Firestore listeners immediately so updates stream live
   if (!liveSnapshotAttached) {
@@ -125,20 +185,39 @@ async function _doInitAdminCloudState() {
               changed = true;
             }
             if (liveData.settings && typeof liveData.settings === 'object') {
-              setStorage('settings', liveData.settings);
-              changed = true;
+              const mergedSettings = pickNewerSettings(allSettingsData, liveData.settings);
+              if (mergedSettings) {
+                allSettingsData = mergedSettings;
+                setStorage('settings', allSettingsData);
+                changed = true;
+              }
             }
             if (changed) {
               console.log('⚡ [Real-time Sync] Settings/services updated from Cloud Firestore monolith.');
               loadStats().catch(() => {});
               loadServices().catch(() => {});
-              loadSettings().catch(() => {});
+              loadSettings(false).catch(() => {});
             }
           }
         }
       }, (err) => {
         console.debug('Admin onSnapshot status:', err.message);
       });
+
+      onSnapshot(settingsDocRef, (liveSettingsSnap) => {
+        if (liveSettingsSnap && liveSettingsSnap.exists && liveSettingsSnap.exists()) {
+          const liveSettings = liveSettingsSnap.data();
+          if (liveSettings && typeof liveSettings === 'object') {
+            const picked = pickNewerSettings(allSettingsData, liveSettings);
+            if (picked && JSON.stringify(picked) !== JSON.stringify(allSettingsData)) {
+              allSettingsData = picked;
+              setStorage('settings', allSettingsData);
+              console.log('⚡ [Real-time Sync] Brand & helpline settings updated from Firestore settings/general.');
+              loadSettings(false).catch(() => {});
+            }
+          }
+        }
+      }, (err) => console.debug('Admin settings document listener:', err.message));
 
       // Dedicated collection listeners: authoritative source for fleet, destinations, and trips
       onSnapshot(collection(db, 'destinations'), (snap) => {
@@ -251,12 +330,13 @@ async function _doInitAdminCloudState() {
   // 3. Load initial documents directly from Firestore collections (guarantees latest images on refresh)
   try {
     console.log('🔄 [Admin Hydration] Querying Firestore collections directly...');
-    const [destSnap, fleetSnap, tripSnap, docSnap, adminImgSnap] = await Promise.all([
+    const [destSnap, fleetSnap, tripSnap, docSnap, adminImgSnap, settingsSnap] = await Promise.all([
       getDocs(collection(db, 'destinations')).catch(err => { console.warn('destSnap warn:', err.message); return null; }),
       getDocs(collection(db, 'fleet')).catch(err => { console.warn('fleetSnap warn:', err.message); return null; }),
       getDocs(collection(db, 'trips')).catch(err => { console.warn('tripSnap warn:', err.message); return null; }),
       getDoc(docRef).catch(err => { console.warn('docSnap warn:', err.message); return null; }),
-      getDocs(collection(db, 'admin_images')).catch(err => { console.warn('adminImgSnap warn:', err.message); return null; })
+      getDocs(collection(db, 'admin_images')).catch(err => { console.warn('adminImgSnap warn:', err.message); return null; }),
+      getDoc(settingsDocRef).catch(err => { console.warn('settingsSnap warn:', err.message); return null; })
     ]);
 
     adminImageMap = {};
@@ -414,6 +494,7 @@ async function _doInitAdminCloudState() {
       }
     }
 
+    let cloudSettings = null;
     if (docSnap && docSnap.exists && docSnap.exists()) {
       const cData = docSnap.data();
       if (cData) {
@@ -422,12 +503,32 @@ async function _doInitAdminCloudState() {
           setStorage('services', allServicesData);
         }
         if (cData.settings && typeof cData.settings === 'object') {
-          setStorage('settings', cData.settings);
+          cloudSettings = pickNewerSettings(cloudSettings, cData.settings);
         }
       }
     } else if (docSnap && !docSnap.exists()) {
       console.log('⚡ [Admin Hydration] Baseline site_content document not found. Syncing...');
       syncStateToFirebaseCloud().catch(() => {});
+    }
+
+    if (settingsSnap && settingsSnap.exists && settingsSnap.exists()) {
+      const sDocData = settingsSnap.data();
+      if (sDocData && typeof sDocData === 'object') {
+        cloudSettings = pickNewerSettings(cloudSettings, sDocData);
+      }
+    } else if (settingsSnap) {
+      const seedSettings = cloudSettings || allSettingsData || { ...SEED_DATA.settings };
+      saveSettingsToFirestore(seedSettings).catch(() => {});
+    }
+
+    if (cloudSettings) {
+      const merged = pickNewerSettings(allSettingsData, cloudSettings);
+      if (merged) {
+        allSettingsData = merged;
+        setStorage('settings', allSettingsData);
+        console.log('🏷️ [Admin Hydration] Loaded Brand & Helpline settings from Cloud Firestore.');
+        loadSettings(false).catch(() => {});
+      }
     }
     console.log('✅ [Admin Hydration] Cloud state initialization complete!');
     return true;
@@ -452,6 +553,11 @@ async function _doInitAdminCloudState() {
         }
         if (!allServicesData || allServicesData.length === 0) {
           if (Array.isArray(s.services)) { allServicesData = s.services; setStorage('services', allServicesData); }
+        }
+        if (!allSettingsData && s.settings && typeof s.settings === 'object') {
+          allSettingsData = s.settings;
+          setStorage('settings', allSettingsData);
+          loadSettings(false).catch(() => {});
         }
       }
     }
@@ -865,7 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
       refreshBtn.textContent = 'Refreshing...';
-      loadAllData().then(() => {
+      loadAllData(true).then(() => {
         refreshBtn.innerHTML = `
           <svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -1631,33 +1737,58 @@ document.addEventListener('DOMContentLoaded', () => {
   if (settingsForm) {
     settingsForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const getVal = (id1, id2, def = '') => {
-        const el = document.getElementById(id1) || document.getElementById(id2);
-        return el ? el.value.trim() : def;
-      };
+      const submitBtn = settingsForm.querySelector('button[type="submit"]');
+      const origBtnText = submitBtn ? submitBtn.textContent : 'Save Brand Settings';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+      }
 
-      const payload = {
-        company_name: getVal('setting_company_name', 'set_company_name', 'Yakshith Nandh Travels'),
-        slogan: getVal('setting_slogan', 'set_slogan', 'Your Safety, Our Priority.'),
-        primary_phone: getVal('setting_primary_phone', 'set_primary_phone', '+91 88868 30755'),
-        secondary_phone: getVal('setting_secondary_phone', 'set_secondary_phone', '+91 97009 35888'),
-        email: getVal('setting_email', 'set_email', 'yakshithnandhtravels.demo@gmail.com'),
-        location: getVal('setting_location', 'set_location', 'Tirupati, Andhra Pradesh, India'),
-        announcement: getVal('setting_announcement', 'set_announcement', '24/7 Available • Pilgrimage & Cab Service in Tirupati')
-      };
-
-      setStorage('settings', payload);
-      saveSettingsToFirestore(payload).catch(() => {});
       try {
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (err) {}
+        const getVal = (id1, id2, def = '') => {
+          const el = document.getElementById(id1) || document.getElementById(id2);
+          return el ? el.value.trim() : def;
+        };
 
-      await syncStateToFirebaseCloud();
-      showAdminToast('✅ Brand and helpline settings updated live across all devices!');
+        const payload = {
+          company_name: getVal('setting_company_name', 'set_company_name', 'Yakshith Nandh Travels'),
+          slogan: getVal('setting_slogan', 'set_slogan', 'Your Safety, Our Priority.'),
+          primary_phone: getVal('setting_primary_phone', 'set_primary_phone', '+91 88868 30755'),
+          secondary_phone: getVal('setting_secondary_phone', 'set_secondary_phone', '+91 97009 35888'),
+          email: getVal('setting_email', 'set_email', 'yakshithnandhtravels.demo@gmail.com'),
+          location: getVal('setting_location', 'set_location', 'Tirupati, Andhra Pradesh, India'),
+          announcement: getVal('setting_announcement', 'set_announcement', '24/7 Available • Pilgrimage & Cab Service in Tirupati'),
+          updated_at: new Date().toISOString()
+        };
+
+        allSettingsData = payload;
+        setStorage('settings', payload);
+        applyAdminBrandUI(payload);
+
+        const firestoreSaved = await saveSettingsToFirestore(payload);
+        let apiSaved = false;
+        try {
+          const apiRes = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          apiSaved = apiRes.ok;
+        } catch (err) {}
+
+        await syncStateToFirebaseCloud();
+
+        if (firestoreSaved === false && !apiSaved) {
+          showAdminToast('⚠️ Saved locally in browser cache, but cloud sync failed. Please check internet connection.');
+        } else {
+          showAdminToast('✅ Brand and helpline settings updated live across all devices!');
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origBtnText;
+        }
+      }
     });
   }
 
@@ -1711,17 +1842,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // DATA RETRIEVAL & RENDERING FUNCTIONS
 // ==========================================================================
 
-async function loadAllData() {
+async function loadAllData(forceRefresh = false) {
   await initAdminCloudState();
   await Promise.allSettled([
     loadStats(),
     loadBookings(),
     loadServices(),
-    loadFleet(),
-    loadDestinations(),
-    loadTrips(),
+    loadFleet(forceRefresh),
+    loadDestinations(forceRefresh),
+    loadTrips(forceRefresh),
     loadMessages(),
-    loadSettings()
+    loadSettings(forceRefresh)
   ]);
 }
 
@@ -2237,21 +2368,42 @@ async function loadMessages() {
 }
 
 // 7. Settings Form Values
-async function loadSettings() {
-  let settings = SEED_DATA.settings;
-  try {
-    const res = await fetch('/api/settings');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.settings) {
-        settings = data.settings;
-        setStorage('settings', settings);
+async function loadSettings(forceFetch = false) {
+  if (!allSettingsData) {
+    try {
+      await initAdminCloudState();
+    } catch (e) {}
+  }
+
+  if (!allSettingsData) {
+    allSettingsData = readSavedSettingsFromStorage();
+  }
+
+  if (forceFetch || !allSettingsData) {
+    try {
+      const cloudSnap = await getDoc(doc(db, 'settings', 'general'));
+      if (cloudSnap && cloudSnap.exists && cloudSnap.exists()) {
+        allSettingsData = pickNewerSettings(allSettingsData, cloudSnap.data());
+        if (allSettingsData) setStorage('settings', allSettingsData);
       }
-    } else {
-      throw new Error('API offline');
-    }
-  } catch (err) {
-    settings = getStorage('settings', SEED_DATA.settings);
+    } catch (fsErr) {}
+
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          allSettingsData = pickNewerSettings(allSettingsData, data.settings);
+          if (allSettingsData) setStorage('settings', allSettingsData);
+        }
+      }
+    } catch (err) {}
+  }
+
+  const settings = allSettingsData || readSavedSettingsFromStorage() || { ...SEED_DATA.settings };
+  if (!allSettingsData) {
+    allSettingsData = settings;
+    setStorage('settings', settings);
   }
 
   const setVal = (id, val) => {
@@ -2274,6 +2426,8 @@ async function loadSettings() {
   setVal('set_email', settings.email);
   setVal('set_location', settings.location);
   setVal('set_announcement', settings.announcement);
+
+  applyAdminBrandUI(settings);
 }
 
 // ==========================================================================

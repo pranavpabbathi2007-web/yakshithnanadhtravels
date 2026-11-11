@@ -4,7 +4,7 @@
  * Dispatch Hotline: +91 88868 30755 / +91 97009 35888
  */
 
-import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794080000000';
+import { db, doc, onSnapshot, getDoc, getDocs, collection } from './firebase-config.js?v=1794370000000';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. DOM Elements
@@ -480,10 +480,17 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.innerHTML = originalBtnHTML;
       }
 
-      // Fallback WhatsApp message generator if not received from API
-      if (!whatsappUrl) {
+      const liveSettings = getActiveSiteSettings();
+      const brandName = (liveSettings && liveSettings.company_name) || 'Yakshith Nandh Travels';
+      const primaryPhone = (liveSettings && liveSettings.primary_phone) || '+91 88868 30755';
+      const baseLocation = (liveSettings && liveSettings.location) || 'Tirupati';
+      const primaryTelHref = formatTelHref(primaryPhone);
+      const waDigits = formatWaDigits(primaryPhone);
+
+      // Prefer live Firestore brand/helpline settings so serverless cold starts never override updated numbers
+      if (!whatsappUrl || (liveSettings && liveSettings.primary_phone)) {
         const text = 
-`*YAKSHITH NANDH TRAVELS - BOOKING REGISTRATION*
+`*${brandName.toUpperCase()} - BOOKING REGISTRATION*
 🙏 *Namaste! Here is my confirmed booking:*
 ━━━━━━━━━━━━━━━━━━━━
 🎫 *Booking Ref:* ${bookingRef}
@@ -497,10 +504,10 @@ document.addEventListener('DOMContentLoaded', () => {
 👥 *Passengers:* ${bookingPayload.passenger_count}
 📝 *Notes:* ${bookingPayload.additional_notes || 'None'}
 ━━━━━━━━━━━━━━━━━━━━
-📍 *Tirupati Dispatch Center:* +91 88868 30755
-_Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
+📍 *${baseLocation} Dispatch Center:* ${primaryPhone}
+_Booking registered in ${brandName} Dispatch Queue_`;
 
-        whatsappUrl = `https://api.whatsapp.com/send?phone=918886830755&text=${encodeURIComponent(text)}`;
+        whatsappUrl = `https://api.whatsapp.com/send?phone=${waDigits}&text=${encodeURIComponent(text)}`;
       }
 
       // Display Grand Temple Confirmation Card
@@ -518,7 +525,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
             </div>
 
             <div style="font-size:0.92rem; line-height:1.6; margin-bottom:16px;">
-              <strong>Thank you, ${bookingPayload.customer_name}!</strong> Your booking for <strong>${bookingPayload.preferred_vehicle}</strong> on <strong>${bookingPayload.travel_date}</strong> (Route: ${bookingPayload.pickup_location} ➔ ${bookingPayload.destination}) has been saved in our Tirupati database.
+              <strong>Thank you, ${bookingPayload.customer_name}!</strong> Your booking for <strong>${bookingPayload.preferred_vehicle}</strong> on <strong>${bookingPayload.travel_date}</strong> (Route: ${bookingPayload.pickup_location} ➔ ${bookingPayload.destination}) has been saved in our dispatch database.
             </div>
 
             <div style="display:flex; flex-wrap:wrap; gap:12px;">
@@ -526,8 +533,8 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
                 <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2z"/></svg>
                 <span>Open WhatsApp Dispatch</span>
               </a>
-              <a href="tel:+918886830755" class="btn btn-secondary btn-sm">
-                <span>Call Helpline (+91 88868 30755)</span>
+              <a href="tel:${primaryTelHref}" class="btn btn-secondary btn-sm">
+                <span>Call Helpline (${escapeHTML(primaryPhone)})</span>
               </a>
             </div>
           </div>
@@ -569,6 +576,77 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       .replace(/'/g, '&#039;');
   };
 
+  const DEFAULT_BRAND_SETTINGS = {
+    company_name: 'Yakshith Nandh Travels',
+    slogan: 'Your Safety, Our Priority.',
+    primary_phone: '+91 88868 30755',
+    secondary_phone: '+91 97009 35888',
+    email: 'yakshithnandhtravels.demo@gmail.com',
+    location: 'Tirupati, Andhra Pradesh, India',
+    announcement: '24/7 Available • Pilgrimage & Cab Service in Tirupati'
+  };
+
+  function isDefaultSettingsObj(s) {
+    if (!s || typeof s !== 'object' || s.updated_at) return false;
+    return Object.keys(DEFAULT_BRAND_SETTINGS).every(
+      k => String(s[k] || '').trim() === String(DEFAULT_BRAND_SETTINGS[k] || '').trim()
+    );
+  }
+
+  function pickNewerSettings(current, candidate) {
+    if (!candidate || typeof candidate !== 'object' || (!candidate.company_name && !candidate.primary_phone && !candidate.email)) {
+      return current;
+    }
+    if (!current || typeof current !== 'object') return { ...candidate };
+
+    const tCur = current.updated_at ? Date.parse(current.updated_at) : 0;
+    const tCand = candidate.updated_at ? Date.parse(candidate.updated_at) : 0;
+
+    if (tCand && !tCur) return { ...candidate };
+    if (tCur && !tCand) return { ...current };
+    if (tCand && tCur) {
+      if (tCand > tCur) return { ...candidate };
+      if (tCur > tCand) return { ...current };
+      return isDefaultSettingsObj(candidate) && !isDefaultSettingsObj(current) ? { ...current } : { ...candidate };
+    }
+
+    if (isDefaultSettingsObj(current) && !isDefaultSettingsObj(candidate)) return { ...candidate };
+    return { ...current };
+  }
+
+  function formatTelHref(phone) {
+    return String(phone || '').replace(/[^\d+]/g, '') || '+918886830755';
+  }
+
+  function formatWaDigits(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (digits.length === 10) return '91' + digits;
+    if (digits.length === 11 && digits.startsWith('0')) return '91' + digits.slice(1);
+    return digits || '918886830755';
+  }
+
+  function getActiveSiteSettings() {
+    if (currentSiteState && currentSiteState.settings) return currentSiteState.settings;
+    try {
+      const raw = localStorage.getItem('ynt_firestore_cache');
+      const cached = raw ? JSON.parse(raw) : null;
+      if (cached && cached.settings) return cached.settings;
+    } catch (e) {}
+    return DEFAULT_BRAND_SETTINGS;
+  }
+
+  function mergeIntoFirestoreCache(partial) {
+    try {
+      const raw = localStorage.getItem('ynt_firestore_cache');
+      const cur = raw ? JSON.parse(raw) : {};
+      const next = { ...cur, ...partial };
+      if (cur && cur.settings && partial && partial.settings) {
+        next.settings = pickNewerSettings(cur.settings, partial.settings);
+      }
+      localStorage.setItem('ynt_firestore_cache', JSON.stringify(next));
+    } catch (e) {}
+  }
+
   let lastAppliedSnapshotHash = '';
   let currentSiteState = {
     settings: null,
@@ -605,8 +683,14 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
       }
     }
 
-    // Preserve latest state internally
-    if (data.settings && typeof data.settings === 'object') currentSiteState.settings = data.settings;
+    // Preserve latest state internally without letting stale defaults clobber saved Cloud Firestore settings
+    if (data.settings && typeof data.settings === 'object') {
+      if (source === 'firestore') {
+        currentSiteState.settings = pickNewerSettings(currentSiteState.settings, data.settings);
+      } else if (!hasHydratedFromFirestore) {
+        currentSiteState.settings = pickNewerSettings(currentSiteState.settings, data.settings);
+      }
+    }
     if (Array.isArray(data.fleet) && data.fleet.length > 0) {
       if (!currentSiteState.fleet || currentSiteState.fleet.length === 0) {
         currentSiteState.fleet = data.fleet.map(f => ({
@@ -724,13 +808,19 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         document.querySelectorAll('.hero-slogan-box span:last-child, .footer-slogan, .about-lead').forEach(el => {
           el.textContent = `"${s.slogan}"`;
         });
+        document.querySelectorAll('.mobile-drawer-slogan').forEach(el => {
+          el.textContent = `Slogan: "${s.slogan}"`;
+        });
       }
 
       // Company Name
       if (s.company_name) {
-        document.querySelectorAll('.brand-name, .footer-brand-logo strong').forEach(el => {
+        document.querySelectorAll('.brand-name, #footerBrandName, #footerBottomBrand, #aboutBrandName, .footer-brand-logo strong').forEach(el => {
           el.textContent = s.company_name;
         });
+        if (document.title) {
+          document.title = `${s.company_name} | Trusted Cab Service in ${s.location || 'Tirupati'}`;
+        }
       }
 
       // Top Announcement Bar
@@ -740,31 +830,51 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
         });
       }
 
-      // Primary Hotline
+      // Primary Hotline & WhatsApp Links
       if (s.primary_phone) {
-        const cleanPhone = s.primary_phone.replace(/\s+/g, '');
-        document.querySelectorAll('a[title="Call Primary Dispatch"] span, .contact-card:nth-child(1) .contact-action-link, .location-banner-cta a[href^="tel"] span').forEach(el => {
+        const cleanPhone = formatTelHref(s.primary_phone);
+        const waDigits = formatWaDigits(s.primary_phone);
+        document.querySelectorAll('a[title="Call Primary Dispatch"] span, .fast-helpline-number span, .contact-card:nth-child(1) .contact-action-link, #footerPrimaryPhone').forEach(el => {
           el.textContent = s.primary_phone;
         });
-        document.querySelectorAll('a[title="Call Primary Dispatch"], .contact-card:nth-child(1) a[href^="tel"], .location-banner-cta a[href^="tel"]').forEach(el => {
+        document.querySelectorAll('.mobile-drawer-primary-phone').forEach(el => {
+          el.textContent = `📞 ${s.primary_phone}`;
+        });
+        document.querySelectorAll('#locationBannerCallText').forEach(el => {
+          el.textContent = `Call ${s.primary_phone}`;
+        });
+        document.querySelectorAll('#bookingWhatsappNotice').forEach(el => {
+          el.textContent = `Submitting will open WhatsApp (${s.primary_phone}) with your pre-filled details to review and send.`;
+        });
+        document.querySelectorAll('a[title="Call Primary Dispatch"], .mobile-drawer-primary-phone, .fast-helpline-number, .contact-card:nth-child(1) a[href^="tel"], .location-banner-cta a[href^="tel"], #footerPrimaryPhone').forEach(el => {
           el.setAttribute('href', `tel:${cleanPhone}`);
+        });
+        document.querySelectorAll('.contact-card:nth-child(3) a[href*="wa.me"], .location-banner-cta a[href*="wa.me"]').forEach(el => {
+          el.setAttribute('href', `https://wa.me/${waDigits}`);
+        });
+        document.querySelectorAll('.floating-whatsapp').forEach(el => {
+          const waMsg = `Namaste ${s.company_name || 'Yakshith Nandh Travels'}, I would like to enquire about a cab booking in ${s.location || 'Tirupati'}.`;
+          el.setAttribute('href', `https://wa.me/${waDigits}?text=${encodeURIComponent(waMsg)}`);
         });
       }
 
       // Secondary Helpline
       if (s.secondary_phone) {
-        const cleanSecPhone = s.secondary_phone.replace(/\s+/g, '');
-        document.querySelectorAll('a[title="Call Secondary Dispatch"] span, .contact-card:nth-child(2) .contact-action-link').forEach(el => {
+        const cleanSecPhone = formatTelHref(s.secondary_phone);
+        document.querySelectorAll('a[title="Call Secondary Dispatch"] span, .contact-card:nth-child(2) .contact-action-link, #footerSecondaryPhone').forEach(el => {
           el.textContent = s.secondary_phone;
         });
-        document.querySelectorAll('a[title="Call Secondary Dispatch"], .contact-card:nth-child(2) a[href^="tel"]').forEach(el => {
+        document.querySelectorAll('.mobile-drawer-secondary-phone').forEach(el => {
+          el.textContent = `📞 ${s.secondary_phone}`;
+        });
+        document.querySelectorAll('a[title="Call Secondary Dispatch"], .mobile-drawer-secondary-phone, .contact-card:nth-child(2) a[href^="tel"], #footerSecondaryPhone').forEach(el => {
           el.setAttribute('href', `tel:${cleanSecPhone}`);
         });
       }
 
       // Business Email
       if (s.email) {
-        document.querySelectorAll('.contact-card:nth-child(4) .contact-action-link, .footer-about + a[href^="mailto"]').forEach(el => {
+        document.querySelectorAll('.contact-card:nth-child(4) .contact-action-link, .footer-contact-items a[href^="mailto"]').forEach(el => {
           el.textContent = s.email;
           el.setAttribute('href', `mailto:${s.email}`);
         });
@@ -772,7 +882,7 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
 
       // Base Location
       if (s.location) {
-        document.querySelectorAll('.top-bar-contact .top-bar-item:nth-child(3) span, .footer-brand-col span[style*="uppercase"]').forEach(el => {
+        document.querySelectorAll('.top-bar-contact .top-bar-item:nth-child(3) span, #footerBrandLocation, #footerContactLocation, #footerBottomLocation, .footer-brand-col span[style*="uppercase"]').forEach(el => {
           el.textContent = s.location;
         });
       }
@@ -1048,22 +1158,34 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
   // REAL-TIME FIRESTORE LISTENERS (Live Reactive Updates Across All Devices)
   // ==========================================================================
 
-  // 1. Unified Site Content Snapshot
+  // 1. Unified Site Content Snapshot & Dedicated Settings Listener
   try {
     const docRef = doc(db, 'site_content', 'data');
     onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const cloudData = docSnap.data();
         if (cloudData) {
-          try {
-            localStorage.setItem('ynt_firestore_cache', JSON.stringify(cloudData));
-          } catch (e) {}
+          mergeIntoFirestoreCache(cloudData);
           applyWebsiteData(cloudData, 'firestore');
           console.log('⚡ Real-time sync: Live state received from Cloud Firestore.');
         }
       }
     }, (err) => {
       console.warn('Firestore onSnapshot listener note:', err.message);
+    });
+
+    const settingsDocRef = doc(db, 'settings', 'general');
+    onSnapshot(settingsDocRef, (settingsSnap) => {
+      if (settingsSnap.exists()) {
+        const settingsData = settingsSnap.data();
+        if (settingsData && typeof settingsData === 'object') {
+          mergeIntoFirestoreCache({ settings: settingsData });
+          applyWebsiteData({ settings: settingsData }, 'firestore');
+          console.log('⚡ Real-time sync: Brand & helpline settings updated from Cloud Firestore.');
+        }
+      }
+    }, (err) => {
+      console.warn('Firestore settings listener note:', err.message);
     });
   } catch (err) {
     console.warn('Firestore initialization note:', err.message);
@@ -1074,8 +1196,16 @@ _Booking registered in Yakshith Nandh Travels Dispatch Queue_`;
     Promise.all([
       getDocs(collection(db, 'destinations')),
       getDocs(collection(db, 'fleet')),
-      getDocs(collection(db, 'trips'))
-    ]).then(([destSnap, fleetSnap, tripSnap]) => {
+      getDocs(collection(db, 'trips')),
+      getDoc(doc(db, 'settings', 'general')).catch(() => null)
+    ]).then(([destSnap, fleetSnap, tripSnap, settingsSnap]) => {
+      if (settingsSnap && settingsSnap.exists && settingsSnap.exists()) {
+        const sData = settingsSnap.data();
+        if (sData && typeof sData === 'object') {
+          mergeIntoFirestoreCache({ settings: sData });
+          applyWebsiteData({ settings: sData }, 'firestore');
+        }
+      }
       if (destSnap && !destSnap.empty) {
         const destList = [];
         destSnap.forEach(d => {

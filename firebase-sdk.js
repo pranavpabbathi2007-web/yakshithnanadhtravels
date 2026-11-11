@@ -189,7 +189,11 @@ async function saveSettingsToFirestore(settings) {
   if (!settings || typeof settings !== 'object') return null;
   try {
     const docRef = doc(db, 'settings', 'general');
-    await setDoc(docRef, sanitizeForFirestore({ ...settings, updated_at: new Date().toISOString() }), { merge: true });
+    const payload = {
+      ...settings,
+      updated_at: settings.updated_at || new Date().toISOString()
+    };
+    await setDoc(docRef, sanitizeForFirestore(payload), { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore settings write note:', err.message);
@@ -382,14 +386,18 @@ async function syncAllToFirestore(snapshot) {
   );
 
   // 2. Admin profile collection document (admin/profile)
+  const settingsData = (snapshot.settings && typeof snapshot.settings === 'object') ? snapshot.settings : {};
+  const helplineText = [settingsData.primary_phone || '+91 88868 30755', settingsData.secondary_phone || '+91 97009 35888']
+    .filter(Boolean)
+    .join(' / ');
   promises.push(
     setDoc(doc(db, 'admin', 'profile'), {
       username: 'admin',
-      email: 'admin@yakshithnandhtravels.com',
+      email: settingsData.email || 'admin@yakshithnandhtravels.com',
       role: 'Master Dispatcher & Administrator',
-      company: 'Yakshith Nandh Travels',
-      helpline: '+91 88868 30755 / +91 97009 35888',
-      location: 'Tirupati, Andhra Pradesh, India',
+      company: settingsData.company_name || 'Yakshith Nandh Travels',
+      helpline: helplineText,
+      location: settingsData.location || 'Tirupati, Andhra Pradesh, India',
       status: 'Active',
       updated_at: new Date().toISOString()
     }, { merge: true }).catch(e => console.warn('Admin profile note:', e.message))
@@ -397,8 +405,12 @@ async function syncAllToFirestore(snapshot) {
 
   // 3. Settings document
   if (snapshot.settings) {
+    const settingsPayload = {
+      ...snapshot.settings,
+      updated_at: snapshot.settings.updated_at || snapshot.updated_at || new Date().toISOString()
+    };
     promises.push(
-      setDoc(doc(db, 'settings', 'general'), sanitizeForFirestore(snapshot.settings), { merge: true })
+      setDoc(doc(db, 'settings', 'general'), sanitizeForFirestore(settingsPayload), { merge: true })
         .catch(e => console.warn('Settings write note:', e.message))
     );
   }
